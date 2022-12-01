@@ -1,15 +1,5 @@
 # ByteTrack
 
-## Input
-
-![Input](input.jpg)
-
-(Video from https://vimeo.com/60139361)
-
-## Output
-
-![Output](output.png)
-
 ## Requirements
 This model requires additional module.
 
