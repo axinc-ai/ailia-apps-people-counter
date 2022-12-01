@@ -74,7 +74,7 @@ parser.add_argument(
     help="NMS threshould.",
 )
 parser.add_argument(
-    '-m', '--model_type', default='mot17_x',
+    '-m', '--model_type', default='mot17_s',
     choices=('mot17_x', 'mot20_x', 'mot17_s', 'mot17_tiny', 'yolox_s', 'yolox_tiny'),
     help='model type'
 )
@@ -279,6 +279,9 @@ def recognize_from_video(net):
         match_thresh=args.match_thresh, frame_rate=30,
         mot20=mot20)
 
+    frame_no = 0
+    tracking_position = {}
+
     frame_shown = False
     while True:
         ret, frame = capture.read()
@@ -304,7 +307,28 @@ def recognize_from_video(net):
                 online_ids.append(tid)
                 online_scores.append(t.score)
 
-        res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
+        # display
+        for t in online_targets:
+            tlwh = t.tlwh
+            tid = t.track_id
+            x = int(tlwh[0] + tlwh[2]/2)
+            y = int(tlwh[1] + tlwh[3])
+            if not (tid in tracking_position):
+                tracking_position[tid] = []
+            tracking_position[tid].append({"x":x,"y":y,"frame_no":frame_no})
+            before = None
+            for data in tracking_position[tid]:
+                if before == None:
+                    before = data
+                    continue
+                color = vis_colors[int(tid) % num_colors]
+                cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color)
+                cv2.putText(frame, str(tid), (x, y - 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, thickness=3)
+        frame_no = frame_no + 1
+        res_img = frame
+
+        #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
 
         # show
         if args.gui or args.video:
