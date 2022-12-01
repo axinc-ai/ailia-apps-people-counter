@@ -152,7 +152,8 @@ def intersect(p1, p2, p3, p4):
     td2 = (p3[0] - p4[0]) * (p2[1] - p3[1]) + (p3[1] - p4[1]) * (p3[0] - p2[0])
     return tc1*tc2<0 and td1*td2<0
 
-def line_crossing(frame, online_targets, tracking_position, frame_no):
+def line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no):
+    global human_count
     if len(target_lines) >= 2:
         cv2.line(frame, target_lines[0], target_lines[1], (0,0,255), thickness=5)
     for i in range(0, len(target_lines)):
@@ -162,10 +163,11 @@ def line_crossing(frame, online_targets, tracking_position, frame_no):
         tlwh = t.tlwh
         tid = t.track_id
         x = int(tlwh[0] + tlwh[2]/2)
-        y = int(tlwh[1] + tlwh[3])
+        y = int(tlwh[1] + tlwh[3]/2)
         y_top = int(tlwh[1])
         if not (tid in tracking_position):
             tracking_position[tid] = []
+            tracking_state[tid] = False
         tracking_position[tid].append({"x":x,"y":y,"frame_no":frame_no})
         before = None
         for data in tracking_position[tid]:
@@ -176,8 +178,16 @@ def line_crossing(frame, online_targets, tracking_position, frame_no):
                 continue
             color = vis_colors[int(tid) % num_colors]
             cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color, thickness=3)
+            if tracking_state[tid] == True:
+                color = (0, 0, 0)
             cv2.putText(frame, str(tid), (x, y_top),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
+            if len(target_lines) >= 2 and tracking_state[tid] == False:
+                if intersect((before["x"],before["y"]), (data["x"], data["y"]), target_lines[0], target_lines[1]):
+                    human_count = human_count + 1
+                    cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=3)
+                    #cv2.circle(frame, center = (data["x"], data["y"]), radius = 40, color=(255,255,255), thickness=3)
+                    tracking_state[tid] = True
             before = data
 
     cv2.putText(frame, "Count : " + str(human_count), (0, 40),
@@ -333,6 +343,7 @@ def recognize_from_video(net):
 
     frame_no = 0
     tracking_position = {}
+    tracking_state = {}
 
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', onclick)
@@ -363,7 +374,7 @@ def recognize_from_video(net):
                 online_scores.append(t.score)
 
         # display
-        line_crossing(frame, online_targets, tracking_position, frame_no)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no)
         frame_no = frame_no + 1
         res_img = frame
 
