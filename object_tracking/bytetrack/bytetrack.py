@@ -188,9 +188,9 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, fram
                 before = data
                 continue
             color = vis_colors[int(tid) % num_colors]
-            cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color, thickness=3)
             if tracking_state[tid] == True:
                 color = (0, 0, 0)
+            cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color, thickness=3)
             cv2.putText(frame, str(tid), (x, y_top),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
             if len(target_lines) >= 2 and tracking_state[tid] == False:
