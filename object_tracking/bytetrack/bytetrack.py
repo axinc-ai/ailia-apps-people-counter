@@ -83,6 +83,10 @@ parser.add_argument(
     action='store_true',
     help='Display preview in GUI.'
 )
+parser.add_argument(
+    '--crossing_line', type=str, default="0 0 100 100",
+    help='Set crossing line x1 y1 x2 y2.'
+)
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
 parser.add_argument("--track_buffer", type=int, default=30, help="the frames for keep lost tracks")
@@ -137,13 +141,13 @@ def frame_vis_generator(frame, bboxes, ids):
 target_lines = []
 human_count = 0
 
-def onclick(event,x,y,flags,param):
-    global target_lines
-    if event == cv2.EVENT_LBUTTONDOWN:
-        if len(target_lines)>=2:
-            target_lines = []
-        target_lines.append((x,y))
-        print(x, y)
+#def onclick(event,x,y,flags,param):
+#    global target_lines
+#    if event == cv2.EVENT_LBUTTONDOWN:
+#        if len(target_lines)>=2:
+#            target_lines = []
+#        target_lines.append((x,y))
+#        print(x, y)
 
 def intersect(p1, p2, p3, p4):
     tc1 = (p1[0] - p2[0]) * (p3[1] - p1[1]) + (p1[1] - p2[1]) * (p1[0] - p3[0])
@@ -152,13 +156,16 @@ def intersect(p1, p2, p3, p4):
     td2 = (p3[0] - p4[0]) * (p2[1] - p3[1]) + (p3[1] - p4[1]) * (p3[0] - p2[0])
     return tc1*tc2<0 and td1*td2<0
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no):
-    global human_count
+def display_line(frame):
     if len(target_lines) >= 2:
         cv2.line(frame, target_lines[0], target_lines[1], (0,0,255), thickness=5)
     for i in range(0, len(target_lines)):
         cv2.circle(frame, center = target_lines[i], radius = 10, color=(0,0,255), thickness=3)
 
+def line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no):
+    display_line(frame)
+
+    global human_count
     for t in online_targets:
         tlwh = t.tlwh
         tid = t.track_id
@@ -346,7 +353,8 @@ def recognize_from_video(net):
     tracking_state = {}
 
     cv2.namedWindow('frame')
-    cv2.setMouseCallback('frame', onclick)
+    #cv2.setMouseCallback('frame', None)#onclick)
+    cv2.setMouseCallback('frame', lambda *args : None)
 
     frame_shown = False
     while True:
@@ -398,6 +406,9 @@ def recognize_from_video(net):
 
     logger.info('Script finished successfully.')
 
+# ======================
+# MAIN functions
+# ======================
 
 def main():
     dic_model = {
@@ -418,6 +429,12 @@ def main():
 
     env_id = args.env_id
 
+    texts= args.crossing_line.split(" ")
+    global target_lines
+    target_lines = []
+    target_lines.append( (int(texts[0]),int(texts[1])) )
+    target_lines.append( (int(texts[2]),int(texts[3])) )
+
     # initialize
     mem_mode = ailia.get_memory_mode(reduce_constant=True, reuse_interstage=True)
     net = ailia.Net(model_path, weight_path, env_id=env_id, memory_mode=mem_mode)
@@ -426,7 +443,6 @@ def main():
         benchmarking(net)
     else:
         recognize_from_video(net)
-
 
 if __name__ == '__main__':
     main()
