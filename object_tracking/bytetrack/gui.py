@@ -69,10 +69,20 @@ target_lines = []
 human_count = 0
 
 def display_line(frame):
+    if len(target_lines) >= 4:
+        cv2.line(frame, target_lines[2], target_lines[3], (255,0,0), thickness=5)
+        cv2.putText(frame, "OUT", (target_lines[2][0] + 5,target_lines[2][1] + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,0,0), thickness=3)
     if len(target_lines) >= 2:
         cv2.line(frame, target_lines[0], target_lines[1], (0,0,255), thickness=5)
+        cv2.putText(frame, "IN", (target_lines[0][0] + 5,target_lines[0][1] + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
     for i in range(0, len(target_lines)):
-        cv2.circle(frame, center = target_lines[i], radius = 10, color=(0,0,255), thickness=3)
+        if i <= 1:
+            color = (0,0,255)
+        else:
+            color = (255,0,0)
+        cv2.circle(frame, center = target_lines[i], radius = 10, color=color, thickness=3)
 
 # ======================
 # GUI functions
@@ -97,6 +107,7 @@ def input_video_dialog():
 g_frame_shown = False
 
 def close_crossing_line():
+    global g_frame_shown
     textCrossingLine.set("Set crossing line")
     cv2.destroyAllWindows()
     g_frame_shown = False
@@ -128,7 +139,7 @@ def set_crossing_line():
 def set_line(event,x,y,flags,param):
     global target_lines
     if event == cv2.EVENT_LBUTTONDOWN:
-        if len(target_lines)>=2:
+        if len(target_lines)>=4:
             target_lines = []
         target_lines.append((x,y))
         frame = g_frame.copy()
@@ -249,8 +260,10 @@ def run():
         args_dict["savepath"] = args.savepath
     if args.csvpath:
         args_dict["csvpath"] = args.csvpath
-    if len(target_lines) >= 2:
-        args_dict["crossing_line"] = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
+    if len(target_lines) >= 4:
+        line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
+        line2 = str(target_lines[2][0]) + " " + str(target_lines[2][1]) + " " + str(target_lines[3][0]) + " " + str(target_lines[3][1])
+        args_dict["crossing_line"] = line1 + " " + line2
 
     options = []
     for key in args_dict:

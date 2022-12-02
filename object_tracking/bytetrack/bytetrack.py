@@ -85,7 +85,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '--crossing_line', type=str, default=None,
-    help='Set crossing line x1 y1 x2 y2.'
+    help='Set crossing line x1 y1 x2 y2 x3 y3 x4 y4.'
 )
 parser.add_argument(
     '--csvpath', type=str, default=None,
@@ -143,15 +143,8 @@ def frame_vis_generator(frame, bboxes, ids):
 # ======================
 
 target_lines = []
-human_count = 0
-
-#def onclick(event,x,y,flags,param):
-#    global target_lines
-#    if event == cv2.EVENT_LBUTTONDOWN:
-#        if len(target_lines)>=2:
-#            target_lines = []
-#        target_lines.append((x,y))
-#        print(x, y)
+human_count_in = 0
+human_count_out = 0
 
 def intersect(p1, p2, p3, p4):
     tc1 = (p1[0] - p2[0]) * (p3[1] - p1[1]) + (p1[1] - p2[1]) * (p1[0] - p3[0])
@@ -161,16 +154,32 @@ def intersect(p1, p2, p3, p4):
     return tc1*tc2<0 and td1*td2<0
 
 def display_line(frame):
+    if len(target_lines) >= 4:
+        cv2.line(frame, target_lines[2], target_lines[3], (255,0,0), thickness=5)
+        cv2.putText(frame, "OUT", (target_lines[2][0] + 5,target_lines[2][1] + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,0,0), thickness=3)
     if len(target_lines) >= 2:
         cv2.line(frame, target_lines[0], target_lines[1], (0,0,255), thickness=5)
+        cv2.putText(frame, "IN", (target_lines[0][0] + 5,target_lines[0][1] + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
     for i in range(0, len(target_lines)):
-        cv2.circle(frame, center = target_lines[i], radius = 10, color=(0,0,255), thickness=3)
+        if i <= 1:
+            color = (0,0,255)
+        else:
+            color = (255,0,0)
+        cv2.circle(frame, center = target_lines[i], radius = 10, color=color, thickness=3)
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no, fps_time, total_time):
+TRACKING_STATE_NONE = 0
+TRACKING_STATE_IN = 1
+TRACKING_STATE_OUT = 2
+TRACKING_STATE_DONE = 3
+
+def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time):
     display_line(frame)
 
-    global human_count
+    global human_count_in, human_count_out
     for t in online_targets:
+        # get one person
         tlwh = t.tlwh
         tid = t.track_id
         x = int(tlwh[0] + tlwh[2]/2)
@@ -178,30 +187,76 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, fram
         y_top = int(tlwh[1])
         if not (tid in tracking_position):
             tracking_position[tid] = []
-            tracking_state[tid] = False
+            tracking_state[tid] = TRACKING_STATE_NONE
         tracking_position[tid].append({"x":x,"y":y,"frame_no":frame_no})
+
+        # get history
         before = None
+        line_before = None
+        countup_in = False
+        countup_out = False
+        color = vis_colors[int(tid) % num_colors]
         for data in tracking_position[tid]:
             if frame_no - data["frame_no"] >= 10:
                 continue
             if before == None:
                 before = data
+                line_before = data
                 continue
-            color = vis_colors[int(tid) % num_colors]
-            if tracking_state[tid] == True:
+            if tracking_state[tid] == TRACKING_STATE_DONE:
                 color = (0, 0, 0)
             cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color, thickness=3)
-            cv2.putText(frame, str(tid), (x, y_top),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
-            if len(target_lines) >= 2 and tracking_state[tid] == False:
-                if intersect((before["x"],before["y"]), (data["x"], data["y"]), target_lines[0], target_lines[1]):
-                    human_count = human_count + 1
-                    cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=3)
-                    #cv2.circle(frame, center = (data["x"], data["y"]), radius = 40, color=(255,255,255), thickness=3)
-                    tracking_state[tid] = True
+            
+            # detect line crossing
+            if len(target_lines) >= 2:
+                if intersect((line_before["x"],line_before["y"]), (data["x"], data["y"]), target_lines[0], target_lines[1]):
+                    if tracking_state[tid] == TRACKING_STATE_OUT or tracking_state[tid] == TRACKING_STATE_DONE:
+                        tracking_guard[tid] = frame_no
+                        if tracking_state[tid] != TRACKING_STATE_DONE:
+                            tracking_state[tid] = TRACKING_STATE_DONE
+                            countup_in = True
+                            human_count_in = human_count_in + 1
+                    else:
+                        tracking_state[tid] = TRACKING_STATE_IN
+                if intersect((line_before["x"],line_before["y"]), (data["x"], data["y"]), target_lines[2], target_lines[3]):
+                    if tracking_state[tid] == TRACKING_STATE_IN or tracking_state[tid] == TRACKING_STATE_DONE:
+                        tracking_guard[tid] = frame_no
+                        if tracking_state[tid] != TRACKING_STATE_DONE:
+                            tracking_state[tid] = TRACKING_STATE_DONE
+                            countup_out = True
+                            human_count_out = human_count_out + 1
+                    else:
+                        tracking_state[tid] = TRACKING_STATE_OUT
             before = data
 
-    cv2.putText(frame, "Count : " + str(human_count)+" Time(sec) : "+str(fps_time)+ " / "+str(total_time), (0, 40),
+        # display id
+        text = str(tid)
+        cv2.putText(frame, text, (x, y_top),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
+
+        # display detected person
+        thickness = 0
+        if tracking_state[tid] != TRACKING_STATE_NONE and tracking_state[tid] != TRACKING_STATE_DONE:
+            thickness = 3
+        if countup_in or countup_out:
+            thickness = 10
+            countup_state.append({"x":x,"y":y,"frame_no":frame_no})
+        if thickness != 0:
+            cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
+        
+        # recovery
+        if tid in tracking_guard:
+            if frame_no - tracking_guard[tid] >= 30:
+                tracking_state[tid] = TRACKING_STATE_NONE
+            
+    for count in countup_state:
+        t = frame_no - count["frame_no"]
+        if t >= 10:
+            continue
+        t = (10 - t) * 4
+        cv2.circle(frame, center = (count["x"],count["y"]), radius = t, color=(255,255,255), thickness=2)
+
+    cv2.putText(frame, "Count(In) : " + str(human_count_in)+" Count(Out) : " + str(human_count_out)+" Time(sec) : "+str(fps_time)+ " / "+str(total_time), (0, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
 
 # ======================
@@ -353,27 +408,35 @@ def recognize_from_video(net):
 
     if args.csvpath != None:
         csv = open(args.csvpath, mode = 'w')
-        csv.write("time(sec) , count , total_count\n")
+        csv.write("time(sec) , count(in) , count(out) , total_count(in) , total_count(out)\n")
     else:
         csv = None
 
     global target_lines
     if not args.crossing_line:
-        target_lines.append( (f_w // 2, 0) )
-        target_lines.append( (f_w // 2, f_h) )
+        m = f_w // 100
+        target_lines.append( (f_w // 2 - m, 0) )
+        target_lines.append( (f_w // 2 - m, f_h) )
+        target_lines.append( (f_w // 2 + m, 0) )
+        target_lines.append( (f_w // 2 + m, f_h) )
     else:
         texts= args.crossing_line.split(" ")
         target_lines = []
         target_lines.append( (int(texts[0]),int(texts[1])) )
         target_lines.append( (int(texts[2]),int(texts[3])) )
+        target_lines.append( (int(texts[4]),int(texts[5])) )
+        target_lines.append( (int(texts[6]),int(texts[7])) )
 
     frame_no = 0
     tracking_position = {}
     tracking_state = {}
+    tracking_guard = {}
+    countup_state = []
 
     frame_shown = False
     before_fps_time = -1
-    total_count = 0
+    total_count_in = 0
+    total_count_out = 0
 
     while True:
         ret, frame = capture.read()
@@ -402,7 +465,7 @@ def recognize_from_video(net):
         # display
         fps_time = int(frame_no / fps)
         total_time = int(frames / fps)
-        line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no, fps_time, total_time)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
@@ -418,12 +481,13 @@ def recognize_from_video(net):
         if writer is not None:
             writer.write(res_img.astype(np.uint8))
         if csv is not None:
-            global human_count
+            global human_count_in, human_count_out
             if before_fps_time != fps_time:
-                csv.write(str(fps_time) + " , " + str(human_count - total_count) + " , " + str(human_count) + "\n")
+                csv.write(str(fps_time) + " , " + str(human_count_in - total_count_in) + " , " +  str(human_count_out - total_count_out) + " , " + str(human_count_in) + " , " + str(human_count_out) + "\n")
                 csv.flush()
                 before_fps_time = fps_time
-                total_count = human_count
+                total_count_in = human_count_in
+                total_count_out = human_count_out
 
         frame_no = frame_no + 1
 
