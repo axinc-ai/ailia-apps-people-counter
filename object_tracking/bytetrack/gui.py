@@ -22,72 +22,16 @@ from bytetrack_utils import multiclass_nms
 from tracker.byte_tracker import BYTETracker
 
 # ======================
-# Parameters
-# ======================
-
-WEIGHT_MOT17_X_PATH = 'bytetrack_x_mot17.onnx'
-MODEL_MOT17_X_PATH = 'bytetrack_x_mot17.onnx.prototxt'
-WEIGHT_MOT17_S_PATH = 'bytetrack_s_mot17.onnx'
-MODEL_MOT17_S_PATH = 'bytetrack_s_mot17.onnx.prototxt'
-WEIGHT_MOT17_TINY_PATH = 'bytetrack_tiny_mot17.onnx'
-MODEL_MOT17_TINY_PATH = 'bytetrack_tiny_mot17.onnx.prototxt'
-WEIGHT_MOT20_X_PATH = 'bytetrack_x_mot20.onnx'
-MODEL_MOT20_X_PATH = 'bytetrack_x_mot20.onnx.prototxt'
-REMOTE_PATH = \
-    'https://storage.googleapis.com/ailia-models/bytetrack/'
-
-WEIGHT_YOLOX_S_PATH = 'yolox_s.opt.onnx'
-MODEL_YOLOX_S_PATH = 'yolox_s.opt.onnx.prototxt'
-WEIGHT_YOLOX_TINY_PATH = 'yolox_tiny.opt.onnx'
-MODEL_YOLOX_TINY_PATH = 'yolox_tiny.opt.onnx.prototxt'
-REMOTE_YOLOX_PATH = \
-    'https://storage.googleapis.com/ailia-models/yolox/'
-
-VIDEO_PATH = 'demo.mp4'
-
-IMAGE_MOT17_X_HEIGHT = 800
-IMAGE_MOT17_X_WIDTH = 1440
-IMAGE_MOT17_S_HEIGHT = 608
-IMAGE_MOT17_S_WIDTH = 1088
-IMAGE_MOT17_TINY_HEIGHT = 416
-IMAGE_MOT17_TINY_WIDTH = 416
-IMAGE_MOT20_X_HEIGHT = 896
-IMAGE_MOT20_X_WIDTH = 1600
-IMAGE_YOLOX_S_HEIGHT = 640
-IMAGE_YOLOX_S_WIDTH = 640
-IMAGE_YOLOX_TINY_HEIGHT = 416
-IMAGE_YOLOX_TINY_WIDTH = 416
-
-# ======================
 # Arguemnt Parser Config
 # ======================
 
 parser = get_base_parser(
-    'ByteTrack', VIDEO_PATH, None
+    'ByteTrack', None, None
 )
 parser.add_argument(
-    "--score_thre", type=float, default=0.1,
-    help="Score threshould to filter the result.",
+    '--csvpath', type=str, default=None,
+    help='Set output csv.'
 )
-parser.add_argument(
-    "--nms_thre", type=float, default=0.7,
-    help="NMS threshould.",
-)
-parser.add_argument(
-    '-m', '--model_type', default='mot17_s',
-    choices=('mot17_x', 'mot20_x', 'mot17_s', 'mot17_tiny', 'yolox_s', 'yolox_tiny'),
-    help='model type'
-)
-parser.add_argument(
-    '--gui',
-    action='store_true',
-    help='Display preview in GUI.'
-)
-# tracking args
-parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
-parser.add_argument("--track_buffer", type=int, default=30, help="the frames for keep lost tracks")
-parser.add_argument("--match_thresh", type=float, default=0.8, help="matching threshold for tracking")
-parser.add_argument('--min-box-area', type=float, default=10, help='filter out tiny boxes')
 args = update_parser(parser)
 
 
@@ -117,19 +61,6 @@ num_colors = 50
 vis_colors = get_colors(num_colors)
 
 
-def frame_vis_generator(frame, bboxes, ids):
-    for i, entity_id in enumerate(ids):
-        color = vis_colors[int(entity_id) % num_colors]
-
-        x1, y1, w, h = np.round(bboxes[i]).astype(int)
-        x2 = x1 + w
-        y2 = y1 + h
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color=color, thickness=3)
-        cv2.putText(frame, str(entity_id), (x1 + 5, y1 + 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, thickness=3)
-
-    return frame
-
 # ======================
 # Line crossing
 # ======================
@@ -155,14 +86,28 @@ import os
 g_frame = None
 
 def input_video_dialog():
+    global textInputVideoDetail
     fTyp = [("Image Video File", "*")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
     if len(file_name) != 0:
         args.video = file_name
+        textInputVideoDetail.set(os.path.basename(args.video))
+
+g_frame_shown = False
+
+def close_crossing_line():
+    textCrossingLine.set("Set crossing line")
+    cv2.destroyAllWindows()
+    g_frame_shown = False
 
 def set_crossing_line():
-    global g_frame
+    global g_frame, g_frame_shown
+    global textCrossingLine
+
+    if g_frame_shown:
+        close_crossing_line()
+        return
 
     capture = get_capture(args.video)
     assert capture.isOpened(), 'Cannot capture source'
@@ -172,21 +117,13 @@ def set_crossing_line():
     cv2.namedWindow('frame')
     cv2.setMouseCallback('frame', set_line)
 
-    cv2.imshow('frame', g_frame)
+    frame = g_frame.copy()
+    display_line(frame)
 
-def output_video_dialog():
-    fTyp = [("Output Video File", "*")]
-    iDir = os.path.abspath(os.path.dirname(__file__))
-    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
-    if len(file_name) != 0:
-        g_file_path = file_name
-
-def output_csv_dialog():
-    fTyp = [("Output Csv File", "*")]
-    iDir = os.path.abspath(os.path.dirname(__file__))
-    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
-    if len(file_name) != 0:
-        g_file_path = file_name
+    cv2.imshow('frame', frame)
+    
+    textCrossingLine.set("Complete crossing line")
+    g_frame_shown = True
 
 def set_line(event,x,y,flags,param):
     global target_lines
@@ -198,8 +135,30 @@ def set_line(event,x,y,flags,param):
         display_line(frame)
         cv2.imshow('frame', frame)
 
+def output_video_dialog():
+    global textOutputVideoDetail
+    fTyp = [("Output Video File", "*")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        args.savepath = file_name
+        textOutputVideoDetail.set(os.path.basename(args.savepath))
+
+
+def output_csv_dialog():
+    global textOutputCsvDetail
+    fTyp = [("Output Csv File", "*")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        args.csvpath = file_name
+        textOutputCsvDetail.set(os.path.basename(args.csvpath))
+
+root = None
+
 def ui():
     # rootメインウィンドウの設定
+    global root
     root = tk.Tk()
     root.title("ailia AI Analytics GUI")
     root.geometry("600x200")
@@ -208,35 +167,54 @@ def ui():
     frame = ttk.Frame(root)
     frame.pack(padx=10,pady=10)
 
-    textTrainVideo = tk.StringVar(frame)
-    textTrainVideo.set("Input video")
-    buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=input_video_dialog, width=14)
-    buttonTrainVideo.grid(row=0, column=0, sticky=tk.NW)
+    textInputVideo = tk.StringVar(frame)
+    textInputVideo.set("Input video")
+    buttonInputVideo = tk.Button(frame, textvariable=textInputVideo, command=input_video_dialog, width=14)
+    buttonInputVideo.grid(row=0, column=0, sticky=tk.NW)
 
-    textTrainVideo2 = tk.StringVar(frame)
-    textTrainVideo2.set(args.video)
-    labelInput = tk.Label(frame, textvariable=textTrainVideo2)
-    labelInput.grid(row=0, column=1, sticky=tk.NW)
+    global textInputVideoDetail
+    textInputVideoDetail = tk.StringVar(frame)
+    textInputVideoDetail.set(args.video)
+    labelInputVideoDetail = tk.Label(frame, textvariable=textInputVideoDetail)
+    labelInputVideoDetail.grid(row=0, column=1, sticky=tk.NW)
 
-    textTrainVideo = tk.StringVar(frame)
-    textTrainVideo.set("Set crossing line")
-    buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=set_crossing_line, width=14)
-    buttonTrainVideo.grid(row=1, column=0, sticky=tk.NW)
+    global textCrossingLine
+    textCrossingLine = tk.StringVar(frame)
+    textCrossingLine.set("Set crossing line")
+    buttonCrossingLine = tk.Button(frame, textvariable=textCrossingLine, command=set_crossing_line, width=14)
+    buttonCrossingLine.grid(row=1, column=0, sticky=tk.NW)
 
-    textTrainVideo = tk.StringVar(frame)
-    textTrainVideo.set("Output video")
-    buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=output_video_dialog, width=14)
-    buttonTrainVideo.grid(row=2, column=0, sticky=tk.NW)
+    textOutputVideo = tk.StringVar(frame)
+    textOutputVideo.set("Output video")
+    buttonOutputVideo = tk.Button(frame, textvariable=textOutputVideo, command=output_video_dialog, width=14)
+    buttonOutputVideo.grid(row=2, column=0, sticky=tk.NW)
 
-    textTrainVideo = tk.StringVar(frame)
-    textTrainVideo.set("Output csv")
-    buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=output_csv_dialog, width=14)
-    buttonTrainVideo.grid(row=3, column=0, sticky=tk.NW)
+    global textOutputVideoDetail
+    textOutputVideoDetail = tk.StringVar(frame)
+    textOutputVideoDetail.set(args.savepath)
+    labelOutputVideoDetail= tk.Label(frame, textvariable=textOutputVideoDetail)
+    labelOutputVideoDetail.grid(row=2, column=1, sticky=tk.NW)
+
+    textOutputCsv = tk.StringVar(frame)
+    textOutputCsv.set("Output csv")
+    buttonOutputCsv = tk.Button(frame, textvariable=textOutputCsv, command=output_csv_dialog, width=14)
+    buttonOutputCsv.grid(row=3, column=0, sticky=tk.NW)
+
+    global textOutputCsvDetail
+    textOutputCsvDetail = tk.StringVar(frame)
+    textOutputCsvDetail.set(args.csvpath)
+    labelOutputCsvDetail= tk.Label(frame, textvariable=textOutputCsvDetail)
+    labelOutputCsvDetail.grid(row=3, column=1, sticky=tk.NW)
 
     textTrainVideo = tk.StringVar(frame)
     textTrainVideo.set("Run")
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=run, width=14)
     buttonTrainVideo.grid(row=4, column=0, sticky=tk.NW)
+
+    textTrainVideo = tk.StringVar(frame)
+    textTrainVideo.set("Stop")
+    buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=stop, width=14)
+    buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
 
     root.mainloop()
 
@@ -245,6 +223,9 @@ def ui():
 # ======================
 
 def main():
+    args.video = "demo.mp4"
+    args.savepath = "output.mp4"
+    args.csvpath = "output.csv"
     ui()
 
 import subprocess
@@ -252,6 +233,8 @@ import subprocess
 proc = None
 
 def run():
+    close_crossing_line()
+
     global proc
 
     if not (proc==None):
@@ -262,6 +245,10 @@ def run():
 
     args_dict = {}#vars(args)
     args_dict["video"] = args.video#"demo.mp4"
+    if args.savepath:
+        args_dict["savepath"] = args.savepath
+    if args.csvpath:
+        args_dict["csvpath"] = args.csvpath
     if len(target_lines) >= 2:
         args_dict["crossing_line"] = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
 
@@ -289,6 +276,12 @@ def run():
     except subprocess.TimeoutExpired:
         pass
 
+def stop():
+    global proc
+
+    if not (proc==None):
+        proc.kill()
+        proc=None
 
 if __name__ == '__main__':
     main()

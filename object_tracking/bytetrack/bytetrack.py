@@ -84,8 +84,12 @@ parser.add_argument(
     help='Display preview in GUI.'
 )
 parser.add_argument(
-    '--crossing_line', type=str, default="0 0 100 100",
+    '--crossing_line', type=str, default=None,
     help='Set crossing line x1 y1 x2 y2.'
+)
+parser.add_argument(
+    '--csvpath', type=str, default=None,
+    help='Set output csv.'
 )
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
@@ -162,7 +166,7 @@ def display_line(frame):
     for i in range(0, len(target_lines)):
         cv2.circle(frame, center = target_lines[i], radius = 10, color=(0,0,255), thickness=3)
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no):
+def line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no, fps_time, total_time):
     display_line(frame)
 
     global human_count
@@ -197,7 +201,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, fram
                     tracking_state[tid] = True
             before = data
 
-    cv2.putText(frame, "Count : " + str(human_count), (0, 40),
+    cv2.putText(frame, "Count : " + str(human_count)+" Time(sec) : "+str(fps_time)+ " / "+str(total_time), (0, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
 
 # ======================
@@ -335,10 +339,9 @@ def recognize_from_video(net):
     # create video writer if savepath is specified as video format
     f_h = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     f_w = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = capture.get(cv2.CAP_PROP_FPS)
     if args.savepath != None:
-        logger.warning(
-            'currently, video results cannot be output correctly...'
-        )
         writer = get_writer(args.savepath, f_h, f_w)
     else:
         writer = None
@@ -348,15 +351,30 @@ def recognize_from_video(net):
         match_thresh=args.match_thresh, frame_rate=30,
         mot20=mot20)
 
+    if args.csvpath != None:
+        csv = open(args.csvpath, mode = 'w')
+        csv.write("time(sec) , count , total_count\n")
+    else:
+        csv = None
+
+    global target_lines
+    if not args.crossing_line:
+        target_lines.append( (f_w // 2, 0) )
+        target_lines.append( (f_w // 2, f_h) )
+    else:
+        texts= args.crossing_line.split(" ")
+        target_lines = []
+        target_lines.append( (int(texts[0]),int(texts[1])) )
+        target_lines.append( (int(texts[2]),int(texts[3])) )
+
     frame_no = 0
     tracking_position = {}
     tracking_state = {}
 
-    cv2.namedWindow('frame')
-    #cv2.setMouseCallback('frame', None)#onclick)
-    cv2.setMouseCallback('frame', lambda *args : None)
-
     frame_shown = False
+    before_fps_time = -1
+    total_count = 0
+
     while True:
         ret, frame = capture.read()
         if (cv2.waitKey(1) & 0xFF == ord('q')) or not ret:
@@ -382,8 +400,9 @@ def recognize_from_video(net):
                 online_scores.append(t.score)
 
         # display
-        line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no)
-        frame_no = frame_no + 1
+        fps_time = int(frame_no / fps)
+        total_time = int(frames / fps)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, frame_no, fps_time, total_time)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
@@ -398,11 +417,22 @@ def recognize_from_video(net):
         # save results
         if writer is not None:
             writer.write(res_img.astype(np.uint8))
+        if csv is not None:
+            global human_count
+            if before_fps_time != fps_time:
+                csv.write(str(fps_time) + " , " + str(human_count - total_count) + " , " + str(human_count) + "\n")
+                csv.flush()
+                before_fps_time = fps_time
+                total_count = human_count
+
+        frame_no = frame_no + 1
 
     capture.release()
     cv2.destroyAllWindows()
     if writer is not None:
         writer.release()
+    if csv is not None:
+        csv.close()
 
     logger.info('Script finished successfully.')
 
@@ -428,12 +458,6 @@ def main():
         REMOTE_PATH if model_type.startswith('mot') else REMOTE_YOLOX_PATH)
 
     env_id = args.env_id
-
-    texts= args.crossing_line.split(" ")
-    global target_lines
-    target_lines = []
-    target_lines.append( (int(texts[0]),int(texts[1])) )
-    target_lines.append( (int(texts[2]),int(texts[3])) )
 
     # initialize
     mem_mode = ailia.get_memory_mode(reduce_constant=True, reuse_interstage=True)
