@@ -5,6 +5,12 @@
 - People count using line crossing
 - Export count to csv
 
+## Requirements
+
+- Python 3.7 and later
+- ailia SDK 1.2.13 and later
+- lap (pip3 install lap)
+
 ## Usage
 
 1. Put this command to open GUI.
