@@ -8,7 +8,7 @@ from matplotlib import cm
 import ailia
 
 # import original modules
-sys.path.append('../../util')
+sys.path.append('./util')
 from utils import get_base_parser, update_parser
 from model_utils import check_and_download_models  # noqa: E402
 from image_utils import normalize_image  # noqa: E402C
@@ -17,9 +17,6 @@ from webcamera_utils import get_capture, get_writer  # noqa: E402
 from logging import getLogger  # noqa: E402
 
 logger = getLogger(__name__)
-
-from bytetrack_utils import multiclass_nms
-from tracker.byte_tracker import BYTETracker
 
 # ======================
 # Arguemnt Parser Config
@@ -171,7 +168,7 @@ def ui():
     # rootメインウィンドウの設定
     global root
     root = tk.Tk()
-    root.title("ailia AI Analytics GUI")
+    root.title("ailia APPS People Counter")
     root.geometry("600x200")
 
     # メインフレームの作成と設置
@@ -281,7 +278,7 @@ def run():
     cmd = [cmd, "bytetrack.py"] + options
     print(" ".join(cmd))
 
-    dir = "./"
+    dir = "./object_tracking/bytetrack/"
 
     proc = subprocess.Popen(cmd, cwd=dir)
     try:

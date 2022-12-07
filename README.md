@@ -1,23 +1,29 @@
-# ailia AI Analytics Human Count
+# ailia APPS People Counter
 
 ## Functions
 
-- Display tracking line
-- Human count using line crossing
+- People count using line crossing
 - Export count to csv
 
 ## Usage
 
-CUI
+1. Put this command to open GUI.
 
 ```
-cd object_tracking/bytetrack
-python3 bytetrack.py -v demo.mp4 --crossing_line 0 0 320 480 --savepath output.mp4 --csvpath output.csv
+python3 ailia-apps-people-counter.py
 ```
 
-GUI
+![Open GUI](./tutorial/open.png)
 
-```
-cd object_tracking/bytetrack
-python3 gui.py
-```
+2. Push "Input video" button to select input video
+3. Push "Set crossing line" button to set crossing line
+
+![Set crossing line](./tutorial/crossing_line.png)
+
+4. Push "Run" button to execute the app
+
+![Run app](./tutorial/run.png)
+
+## Test video
+
+https://pixabay.com/videos/segway-scooter-people-move-28146/
