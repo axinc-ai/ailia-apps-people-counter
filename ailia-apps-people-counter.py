@@ -23,11 +23,11 @@ logger = getLogger(__name__)
 # ======================
 
 parser = get_base_parser(
-    'ByteTrack', None, None
+    'ailia APPS people counter', None, None
 )
 parser.add_argument(
-    '--csvpath', type=str, default=None,
-    help='Set output csv.'
+    '--camera', type=str, default=None,
+    help='Set web cam mode.'
 )
 args = update_parser(parser)
 
@@ -182,7 +182,10 @@ def ui():
 
     global textInputVideoDetail
     textInputVideoDetail = tk.StringVar(frame)
-    textInputVideoDetail.set(args.video)
+    if args.camera:
+        textInputVideoDetail.set("camera "+args.camera)
+    else:
+        textInputVideoDetail.set(args.video)
     labelInputVideoDetail = tk.Label(frame, textvariable=textInputVideoDetail)
     labelInputVideoDetail.grid(row=0, column=1, sticky=tk.NW)
 
@@ -252,7 +255,10 @@ def run():
     cmd = sys.executable
 
     args_dict = {}#vars(args)
-    args_dict["video"] = args.video#"demo.mp4"
+    if args.camera:
+        args_dict["video"] = args.camera
+    else:
+        args_dict["video"] = args.video
     if args.savepath:
         args_dict["savepath"] = args.savepath
     if args.csvpath:

@@ -11,9 +11,10 @@ Count the number of people crossing a line from a video using an AI model for pe
 
 ## Requirements
 
+- Windows, macOS, Linux
 - Python 3.7 and later
-- ailia SDK 1.2.13 and later
-- lap (pip3 install lap)
+- [ailia SDK](https://github.com/axinc-ai/ailia-models/blob/master/TUTORIAL.md) 1.2.13 and later
+- lap (`pip3 install lap`)
 
 ## Basic Usage
 
@@ -34,36 +35,31 @@ python3 ailia-apps-people-counter.py
 
 ![Run app](./tutorial/run.png)
 
-## Write output to video and csv
+Count (out) is incremented when passing through the line of in to go out. Count (in) is incremented when passing through the line of out to go in.
 
-1. Push "Output video" button to select output video
-2. Push "Output csv" button to select output csv
+## Other functions
 
-## Csv format
+### Write output to video and csv
+
+a. Push "Output video" button to select output video
+b. Push "Output csv" button to select output csv
+
+The examples of csv file.
 
 ```
 time(sec) , count(in) , count(out) , total_count(in) , total_count(out)
 0 , 0 , 0 , 0 , 0
 1 , 1 , 1 , 1 , 1
 2 , 1 , 1 , 2 , 2
-3 , 0 , 0 , 2 , 2
-4 , 0 , 2 , 2 , 4
-5 , 1 , 0 , 3 , 4
-6 , 0 , 0 , 3 , 4
-7 , 1 , 0 , 4 , 4
-8 , 1 , 0 , 5 , 4
-9 , 1 , 0 , 6 , 4
-10 , 1 , 0 , 7 , 4
-11 , 0 , 0 , 7 , 4
-12 , 0 , 0 , 7 , 4
-13 , 0 , 0 , 7 , 4
-14 , 0 , 1 , 7 , 5
-15 , 0 , 0 , 7 , 5
 ```
 
-## Counting scheme
+### Use webcam
 
-Count (out) is incremented when passing through the line of in to go out. Count (in) is incremented when passing through the line of out to go in.
+Please add `--camera 0` option when open GUI.
+
+```
+python3 ailia-apps-people-counter.py --camera 0
+```
 
 ## Test video
 
