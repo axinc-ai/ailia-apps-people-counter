@@ -94,7 +94,7 @@ g_frame = None
 
 def input_video_dialog():
     global textInputVideoDetail
-    fTyp = [("Image Video File", "*")]
+    fTyp = [("All Files", "*.*"), ("Video files","*.mp4")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
     if len(file_name) != 0:
