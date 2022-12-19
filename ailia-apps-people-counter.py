@@ -4,6 +4,7 @@ import time
 import numpy as np
 import cv2
 from matplotlib import cm
+from PIL import Image, ImageTk
 
 import ailia
 
@@ -101,20 +102,20 @@ def input_video_dialog():
         args.video = file_name
         textInputVideoDetail.set(os.path.basename(args.video))
 
-g_frame_shown = False
+crossingLineWindow = None
 
 def close_crossing_line():
-    global g_frame_shown
-    textCrossingLine.set("Set crossing line")
-    cv2.destroyAllWindows()
-    g_frame_shown = False
+    global crossingLineWindow
+    if crossingLineWindow != None and crossingLineWindow.winfo_exists():
+        crossingLineWindow.destroy()
+        crossingLineWindow = None
 
 def set_crossing_line():
     global g_frame, g_frame_shown
     global textCrossingLine
+    global crossingLineWindow
 
-    if g_frame_shown:
-        close_crossing_line()
+    if crossingLineWindow != None and crossingLineWindow.winfo_exists():
         return
 
     capture = get_capture(args.video)
@@ -122,26 +123,41 @@ def set_crossing_line():
     ret, frame = capture.read()
     g_frame = frame
 
-    cv2.namedWindow('frame')
-    cv2.setMouseCallback('frame', set_line)
+    crossingLineWindow = tk.Toplevel()
+    crossingLineWindow.title("Set crossing line")
+    crossingLineWindow.geometry(str(g_frame.shape[1])+"x"+str(g_frame.shape[0]))
+    tk.Label(crossingLineWindow, text ="Please set crossing line by click").pack()
+    crossingLineWindow.canvas = tk.Canvas(crossingLineWindow)
+    crossingLineWindow.canvas.bind('<Button-1>', set_line)
+    crossingLineWindow.canvas.pack(expand = True, fill = tk.BOTH)
 
     frame = g_frame.copy()
     display_line(frame)
+    update_frame_image(frame)
 
-    cv2.imshow('frame', frame)
-    
     textCrossingLine.set("Complete crossing line")
-    g_frame_shown = True
 
-def set_line(event,x,y,flags,param):
+def update_frame_image(frame):
+    global crossingLineWindow
+    cv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(cv_image)
+    crossingLineWindow.photo_image = ImageTk.PhotoImage(image=pil_image)
+    crossingLineWindow.canvas.create_image(
+            frame.shape[1] / 2,
+            frame.shape[0] / 2,                   
+            image=crossingLineWindow.photo_image
+            )
+
+def set_line(event):
     global target_lines
-    if event == cv2.EVENT_LBUTTONDOWN:
-        if len(target_lines)>=4:
-            target_lines = []
-        target_lines.append((x,y))
-        frame = g_frame.copy()
-        display_line(frame)
-        cv2.imshow('frame', frame)
+    x = event.x
+    y = event.y
+    if len(target_lines)>=4:
+        target_lines = []
+    target_lines.append((x,y))
+    frame = g_frame.copy()
+    display_line(frame)
+    update_frame_image(frame)
 
 def output_video_dialog():
     global textOutputVideoDetail
@@ -263,6 +279,8 @@ def run():
         args_dict["savepath"] = args.savepath
     if args.csvpath:
         args_dict["csvpath"] = args.csvpath
+    if args.env_id != None:
+        args_dict["env_id"] = args.env_id
     if len(target_lines) >= 4:
         line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
         line2 = str(target_lines[2][0]) + " " + str(target_lines[2][1]) + " " + str(target_lines[3][0]) + " " + str(target_lines[3][1])
