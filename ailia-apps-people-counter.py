@@ -17,6 +17,11 @@ from webcamera_utils import get_capture, get_writer  # noqa: E402
 # logger
 from logging import getLogger  # noqa: E402
 
+import tkinter as tk
+from tkinter import ttk
+import tkinter.filedialog
+import os
+
 logger = getLogger(__name__)
 
 # ======================
@@ -58,6 +63,77 @@ def get_colors(n, colormap="gist_ncar"):
 num_colors = 50
 vis_colors = get_colors(num_colors)
 
+# ======================
+# Video
+# ======================
+
+def input_video_dialog():
+    global textInputVideoDetail
+    fTyp = [("All Files", "*.*"), ("Video files","*.mp4")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        args.video = file_name
+        textInputVideoDetail.set(os.path.basename(args.video))
+
+def output_video_dialog():
+    global textOutputVideoDetail
+    fTyp = [("Output Video File", "*")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        args.savepath = file_name
+        textOutputVideoDetail.set(os.path.basename(args.savepath))
+
+
+def output_csv_dialog():
+    global textOutputCsvDetail
+    fTyp = [("Output Csv File", "*")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        args.csvpath = file_name
+        textOutputCsvDetail.set(os.path.basename(args.csvpath))
+
+# ======================
+# Environment
+# ======================
+
+env_index = args.env_id
+
+def get_env_list():
+    env_list = []
+    for env in ailia.get_environment_list():
+        env_list.append(env.name)
+    return env_list  
+
+def environment_changed(event):
+    global env_index
+    selection = event.widget.curselection()
+    if selection:
+        env_index = selection[0]
+    else:
+        env_index = 0
+    print("env",env_index)
+
+# ======================
+# Model
+# ======================
+
+model_index = 0
+
+def get_model_list():
+    model_list = ["mot17_s", "mot17_tiny"]
+    return model_list  
+
+def model_changed(event):
+    global model_index
+    selection = event.widget.curselection()
+    if selection:
+        model_index = selection[0]
+    else:
+        model_index = 0
+    print("model",model_index)
 
 # ======================
 # Line crossing
@@ -82,26 +158,7 @@ def display_line(frame):
             color = (255,0,0)
         cv2.circle(frame, center = target_lines[i], radius = 10, color=color, thickness=3)
 
-# ======================
-# GUI functions
-# ======================
-
-import tkinter as tk
-from tkinter import ttk
-import tkinter.filedialog
-import os
-
 g_frame = None
-
-def input_video_dialog():
-    global textInputVideoDetail
-    fTyp = [("All Files", "*.*"), ("Video files","*.mp4")]
-    iDir = os.path.abspath(os.path.dirname(__file__))
-    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
-    if len(file_name) != 0:
-        args.video = file_name
-        textInputVideoDetail.set(os.path.basename(args.video))
-
 crossingLineWindow = None
 
 def close_crossing_line():
@@ -135,8 +192,6 @@ def set_crossing_line():
     display_line(frame)
     update_frame_image(frame)
 
-    textCrossingLine.set("Complete crossing line")
-
 def update_frame_image(frame):
     global crossingLineWindow
     cv_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -159,24 +214,9 @@ def set_line(event):
     display_line(frame)
     update_frame_image(frame)
 
-def output_video_dialog():
-    global textOutputVideoDetail
-    fTyp = [("Output Video File", "*")]
-    iDir = os.path.abspath(os.path.dirname(__file__))
-    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
-    if len(file_name) != 0:
-        args.savepath = file_name
-        textOutputVideoDetail.set(os.path.basename(args.savepath))
-
-
-def output_csv_dialog():
-    global textOutputCsvDetail
-    fTyp = [("Output Csv File", "*")]
-    iDir = os.path.abspath(os.path.dirname(__file__))
-    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
-    if len(file_name) != 0:
-        args.csvpath = file_name
-        textOutputCsvDetail.set(os.path.basename(args.csvpath))
+# ======================
+# GUI functions
+# ======================
 
 root = None
 
@@ -185,7 +225,7 @@ def ui():
     global root
     root = tk.Tk()
     root.title("ailia APPS People Counter")
-    root.geometry("600x200")
+    root.geometry("600x240")
 
     # メインフレームの作成と設置
     frame = ttk.Frame(root)
@@ -243,6 +283,33 @@ def ui():
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=stop, width=14)
     buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
 
+    model_list = get_model_list()
+    env_list = get_env_list()
+
+    lists = tk.StringVar(value=model_list)
+    listEnvironment =tk.StringVar(value=env_list)
+
+    ListboxModel = tk.Listbox(frame, listvariable=lists, width=40, height=3, selectmode="single", exportselection=False)
+    ListboxEnvironment = tk.Listbox(frame, listvariable=listEnvironment, width=40, height=4, selectmode="single", exportselection=False)
+
+    ListboxModel.bind("<<ListboxSelect>>", model_changed)
+    ListboxEnvironment.bind("<<ListboxSelect>>", environment_changed)
+
+    ListboxModel.select_set(model_index)
+    ListboxEnvironment.select_set(env_index)
+
+    textModel = tk.StringVar(frame)
+    textModel.set("Models")
+    labelModel = tk.Label(frame, textvariable=textModel)
+    labelModel.grid(row=0, column=2, sticky=tk.NW, rowspan=1)
+    ListboxModel.grid(row=1, column=2, sticky=tk.NW, rowspan=2)
+
+    textEnvironment = tk.StringVar(frame)
+    textEnvironment.set("Environment")
+    labelEnvironment = tk.Label(frame, textvariable=textEnvironment)
+    labelEnvironment.grid(row=3, column=2, sticky=tk.NW, rowspan=1)
+    ListboxEnvironment.grid(row=4, column=2, sticky=tk.NW, rowspan=4)
+
     root.mainloop()
 
 # ======================
@@ -279,8 +346,13 @@ def run():
         args_dict["savepath"] = args.savepath
     if args.csvpath:
         args_dict["csvpath"] = args.csvpath
-    if args.env_id != None:
-        args_dict["env_id"] = args.env_id
+    
+    global model_index
+    args_dict["model_type"] = get_model_list()[model_index]
+
+    global env_index
+    args_dict["env_id"] = env_index
+
     if len(target_lines) >= 4:
         line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
         line2 = str(target_lines[2][0]) + " " + str(target_lines[2][1]) + " " + str(target_lines[3][0]) + " " + str(target_lines[3][1])
