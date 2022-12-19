@@ -114,7 +114,7 @@ def environment_changed(event):
         env_index = selection[0]
     else:
         env_index = 0
-    print("env",env_index)
+    #print("env",env_index)
 
 # ======================
 # Model
@@ -133,7 +133,7 @@ def model_changed(event):
         model_index = selection[0]
     else:
         model_index = 0
-    print("model",model_index)
+    #print("model",model_index)
 
 # ======================
 # Line crossing
