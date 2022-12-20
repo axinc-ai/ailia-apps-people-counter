@@ -63,6 +63,23 @@ Please add `--camera 0` option when open GUI.
 python3 ailia-apps-people-counter.py --camera 0
 ```
 
+## Architecture
+
+```mermaid
+classDiagram
+`ailia APPS People Counter` <|-- `ByteTrack` : Person Tracking (ID assignment)
+`ByteTrack` <|-- `ailia.detector` : Person Detection (Bounding box)
+`ailia APPS People Counter` : Input Video, Output Video, Output csv
+`ByteTrack` : Kalman Filter
+`ailia.detector` <|-- `ailia.core` : Inference Engine
+`ailia.core` <|-- `onnx` : Model
+`ailia.detector` : ailiaDetectorCompute
+`ailia.core` : ailiaCreate, ailiaPredict, ailiaDestroy
+`ailia.core` <|-- Backend : Acceleration
+`onnx` : mot17_s, mot17_tiny
+`Backend` : CPU, GPU
+```
+
 ## Test video
 
 https://pixabay.com/videos/segway-scooter-people-move-28146/
