@@ -16,6 +16,10 @@ from webcamera_utils import get_capture, get_writer  # noqa: E402
 # logger
 from logging import getLogger  # noqa: E402
 
+# post processing
+sys.path.append('../clip')
+from clip import create_clip, recognize_from_image
+
 logger = getLogger(__name__)
 
 from bytetrack_utils import multiclass_nms
@@ -84,6 +88,11 @@ parser.add_argument(
     help='Display preview in GUI.'
 )
 parser.add_argument(
+    '--clip',
+    action='store_true',
+    help='Apply clip after detection.'
+)
+parser.add_argument(
     '--crossing_line', type=str, default=None,
     help='Set crossing line x1 y1 x2 y2 x3 y3 x4 y4.'
 )
@@ -98,6 +107,12 @@ parser.add_argument("--match_thresh", type=float, default=0.8, help="matching th
 parser.add_argument('--min-box-area', type=float, default=10, help='filter out tiny boxes')
 args = update_parser(parser)
 
+
+# ======================
+# Clip
+# ======================
+
+clip_text = ["man", "woman"]
 
 # ======================
 # Secondaty Functions
@@ -174,7 +189,7 @@ TRACKING_STATE_IN = 1
 TRACKING_STATE_OUT = 2
 TRACKING_STATE_DONE = 3
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time):
+def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id):
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -196,6 +211,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         countup_in = False
         countup_out = False
         color = vis_colors[int(tid) % num_colors]
+        original_color = color
         for data in tracking_position[tid]:
             if frame_no - data["frame_no"] >= 10:
                 continue
@@ -233,6 +249,9 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         text = str(tid)
         cv2.putText(frame, text, (x, y_top),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
+        if tid in clip_id:
+            cv2.putText(frame, clip_id[tid], (x, y_top + 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
 
         # display detected person
         thickness = 0
@@ -243,6 +262,11 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
             countup_state.append({"x":x,"y":y,"frame_no":frame_no})
         if thickness != 0:
             cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
+            if args.clip and (countup_in or countup_out):
+                img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+                prob = recognize_from_image(net_clip, img)
+                i = np.argmax(prob[0])
+                clip_id[tid] = clip_text[i] + " " + str(int(prob[0][i]*100)/100)
         
         # recovery
         if tid in tracking_guard:
@@ -359,31 +383,7 @@ def predict(net, img):
     return dets
 
 
-def benchmarking(net):
-    video_file = args.video if args.video else args.input[0]
-    capture = get_capture(video_file)
-    assert capture.isOpened(), 'Cannot capture source'
-
-    _, frame = capture.read()
-
-    logger.info('BENCHMARK mode')
-
-    total_time_estimation = 0
-    for i in range(args.benchmark_count):
-        start = int(round(time.time() * 1000))
-        predict(net, frame)
-        end = int(round(time.time() * 1000))
-        estimation_time = (end - start)
-
-        # Loggin
-        logger.info(f'\tailia processing estimation time {estimation_time} ms')
-        if i != 0:
-            total_time_estimation = total_time_estimation + estimation_time
-
-    logger.info(f'\taverage time estimation {total_time_estimation / (args.benchmark_count - 1)} ms')
-
-
-def recognize_from_video(net):
+def recognize_from_video(net, net_clip):
     min_box_area = args.min_box_area
     mot20 = args.model_type == 'mot20'
 
@@ -431,6 +431,7 @@ def recognize_from_video(net):
     tracking_position = {}
     tracking_state = {}
     tracking_guard = {}
+    clip_id = {}
     countup_state = []
 
     frame_shown = False
@@ -465,7 +466,7 @@ def recognize_from_video(net):
         # display
         fps_time = int(frame_no / fps)
         total_time = int(frames / fps)
-        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
@@ -527,10 +528,12 @@ def main():
     mem_mode = ailia.get_memory_mode(reduce_constant=True, reuse_interstage=True)
     net = ailia.Net(model_path, weight_path, env_id=env_id, memory_mode=mem_mode)
 
-    if args.benchmark:
-        benchmarking(net)
+    if args.clip:
+        net_clip = create_clip(clip_text, args.env_id)
     else:
-        recognize_from_video(net)
+        net_clip = None
+
+    recognize_from_video(net, net_clip)
 
 if __name__ == '__main__':
     main()
