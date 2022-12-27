@@ -93,6 +93,11 @@ parser.add_argument(
     help='Apply clip after detection.'
 )
 parser.add_argument(
+    '-t', '--text', dest='text_inputs', type=str,
+    action='append',
+    help='Input text. (can be specified multiple times)'
+)
+parser.add_argument(
     '--crossing_line', type=str, default=None,
     help='Set crossing line x1 y1 x2 y2 x3 y3 x4 y4.'
 )
@@ -112,7 +117,11 @@ args = update_parser(parser)
 # Clip
 # ======================
 
-clip_text = ["man", "woman"]
+if args.text_inputs:
+    clip_text = args.text_inputs
+else:
+    clip_text = ["man", "woman"]
+
 
 # ======================
 # Secondaty Functions
@@ -189,7 +198,7 @@ TRACKING_STATE_IN = 1
 TRACKING_STATE_OUT = 2
 TRACKING_STATE_DONE = 3
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id):
+def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_count):
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -267,6 +276,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
                 prob = recognize_from_image(net_clip, img)
                 i = np.argmax(prob[0])
                 clip_id[tid] = clip_text[i] + " " + str(int(prob[0][i]*100)/100)
+                clip_count[i] = clip_count[i] + 1
         
         # recovery
         if tid in tracking_guard:
@@ -282,6 +292,32 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
 
     cv2.putText(frame, "Count(In) : " + str(human_count_in)+" Count(Out) : " + str(human_count_out)+" Time(sec) : "+str(fps_time)+ " / "+str(total_time), (0, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
+
+
+# ======================
+# Csv output
+# ======================
+
+def open_csv():
+    csv = open(args.csvpath, mode = 'w')
+    csv.write("time(sec) , count(in) , count(out) , total_count(in) , total_count(out)")
+    if args.clip:
+        for i in range(0, len(clip_text)):
+            csv.write(" , ")
+            csv.write(clip_text[i])
+    csv.write("\n")
+    return csv
+
+
+def write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count):
+    csv.write(str(fps_time) + " , " + str(human_count_in - total_count_in) + " , " +  str(human_count_out - total_count_out) + " , " + str(human_count_in) + " , " + str(human_count_out))
+    if args.clip:
+        for i in range(0, len(clip_text)):
+            csv.write(" , ")
+            csv.write(str(clip_count[i] - total_clip_count[i]))
+    csv.write("\n")
+    csv.flush()
+
 
 # ======================
 # Main functions
@@ -407,8 +443,7 @@ def recognize_from_video(net, net_clip):
         mot20=mot20)
 
     if args.csvpath != None:
-        csv = open(args.csvpath, mode = 'w')
-        csv.write("time(sec) , count(in) , count(out) , total_count(in) , total_count(out)\n")
+        csv = open_csv()
     else:
         csv = None
 
@@ -439,6 +474,13 @@ def recognize_from_video(net, net_clip):
     total_count_in = 0
     total_count_out = 0
 
+    clip_count = []
+    total_clip_count = []
+    if args.clip:
+        for i in range(0, len(clip_text)):
+            clip_count.append(0)
+            total_clip_count.append(0)
+
     while True:
         ret, frame = capture.read()
         if (cv2.waitKey(1) & 0xFF == ord('q')) or not ret:
@@ -466,7 +508,7 @@ def recognize_from_video(net, net_clip):
         # display
         fps_time = int(frame_no / fps)
         total_time = int(frames / fps)
-        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_count)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
@@ -484,11 +526,13 @@ def recognize_from_video(net, net_clip):
         if csv is not None:
             global human_count_in, human_count_out
             if before_fps_time != fps_time:
-                csv.write(str(fps_time) + " , " + str(human_count_in - total_count_in) + " , " +  str(human_count_out - total_count_out) + " , " + str(human_count_in) + " , " + str(human_count_out) + "\n")
-                csv.flush()
+                write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count)
                 before_fps_time = fps_time
                 total_count_in = human_count_in
                 total_count_out = human_count_out
+                if args.clip:
+                    for i in range(0, len(clip_text)):
+                        total_clip_count[i] = clip_count[i]
 
         frame_no = frame_no + 1
 
