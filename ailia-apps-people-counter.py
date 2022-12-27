@@ -219,7 +219,8 @@ def set_line(event):
 # ======================
 
 root = None
-checkBoxGenderBln = None
+checkBoxClipBln = None
+checkBoxAgeGenderBln = None
 clipTextEntery = None
 
 def ui():
@@ -312,16 +313,22 @@ def ui():
     labelEnvironment.grid(row=3, column=2, sticky=tk.NW, rowspan=1)
     ListboxEnvironment.grid(row=4, column=2, sticky=tk.NW, rowspan=4)
 
-    global checkBoxGenderBln
-    checkBoxGenderBln = tkinter.BooleanVar()
-    checkBoxGenderBln.set(False)
-    checkBoxGender = tkinter.Checkbutton(frame, variable=checkBoxGenderBln, text='Clip classification')
-    checkBoxGender.grid(row=8, column=2, sticky=tk.NW, rowspan=1)
+    global checkBoxClipBln
+    checkBoxClipBln = tkinter.BooleanVar()
+    checkBoxClipBln.set(False)
+    checkBoxClip = tkinter.Checkbutton(frame, variable=checkBoxClipBln, text='Clip classification')
+    checkBoxClip.grid(row=8, column=2, sticky=tk.NW, rowspan=1)
 
     global clipTextEntery
     clipTextEntery = tkinter.Entry(frame, width=20)
     clipTextEntery.insert(tkinter.END,"man,woman")
     clipTextEntery.grid(row=9, column=2, sticky=tk.NW, rowspan=1)
+
+    global checkBoxAgeGenderBln
+    checkBoxAgeGenderBln = tkinter.BooleanVar()
+    checkBoxAgeGenderBln.set(False)
+    checkBoxAgeGender = tkinter.Checkbutton(frame, variable=checkBoxAgeGenderBln, text='Age gender classification')
+    checkBoxAgeGender.grid(row=10, column=2, sticky=tk.NW, rowspan=1)
 
     root.mainloop()
 
@@ -366,10 +373,14 @@ def run():
     global env_index
     args_dict["env_id"] = env_index
 
-    global checkBoxGenderBln
-    if checkBoxGenderBln.get():
+    global checkBoxClipBln
+    if checkBoxClipBln.get():
         args_dict["clip"] = True
-    
+
+    global checkBoxAgeGenderBln
+    if checkBoxAgeGenderBln.get():
+        args_dict["age_gender"] = True
+
     if len(target_lines) >= 4:
         line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
         line2 = str(target_lines[2][0]) + " " + str(target_lines[2][1]) + " " + str(target_lines[3][0]) + " " + str(target_lines[3][1])

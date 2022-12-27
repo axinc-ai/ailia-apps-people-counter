@@ -18,7 +18,9 @@ from logging import getLogger  # noqa: E402
 
 # post processing
 sys.path.append('../clip')
-from clip import create_clip, recognize_from_image
+from clip import create_clip, recognize_clip
+sys.path.append('../age-gender-retail')
+from age_gender_retail import create_age_gender_retail, recognize_age_gender_retail
 
 logger = getLogger(__name__)
 
@@ -88,6 +90,14 @@ parser.add_argument(
     help='Display preview in GUI.'
 )
 parser.add_argument(
+    '--crossing_line', type=str, default=None,
+    help='Set crossing line x1 y1 x2 y2 x3 y3 x4 y4.'
+)
+parser.add_argument(
+    '--csvpath', type=str, default=None,
+    help='Set output csv.'
+)
+parser.add_argument(
     '--clip',
     action='store_true',
     help='Apply clip after detection.'
@@ -98,12 +108,9 @@ parser.add_argument(
     help='Input text. (can be specified multiple times)'
 )
 parser.add_argument(
-    '--crossing_line', type=str, default=None,
-    help='Set crossing line x1 y1 x2 y2 x3 y3 x4 y4.'
-)
-parser.add_argument(
-    '--csvpath', type=str, default=None,
-    help='Set output csv.'
+    '--age_gender',
+    action='store_true',
+    help='Apply age gender detection.'
 )
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
@@ -199,7 +206,9 @@ TRACKING_STATE_IN = 1
 TRACKING_STATE_OUT = 2
 TRACKING_STATE_DONE = 3
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_conf, clip_count):
+def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
+    net_clip, clip_id, clip_conf, clip_count,
+    net_age_gender, age_gender_id):
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -259,9 +268,15 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         text = str(tid)
         cv2.putText(frame, text, (x, y_top),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
+        y_top = y_top + 20
         if tid in clip_id:
             text = clip_text[clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
-            cv2.putText(frame, text, (x, y_top + 20),
+            cv2.putText(frame, text, (x, y_top),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
+            y_top = y_top + 20
+        if tid in age_gender_id:
+            text = age_gender_id[tid]#clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
+            cv2.putText(frame, text, (x, y_top),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
 
         # display detected person
@@ -278,13 +293,21 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         if args.clip and (countup_in or countup_out or (clip_for_initial_track and not (tid in clip_id))):
             img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
             if img.shape[0] > 0 and img.shape[1] > 0:
-                prob = recognize_from_image(net_clip, img)
+                prob = recognize_clip(net_clip, img)
                 i = np.argmax(prob[0])
                 clip_id[tid] = i
                 clip_conf[tid] = prob[0][i]
                 if countup_in or countup_out:
                     clip_count[i] = clip_count[i] + 1
-        
+        if args.age_gender and (countup_in or countup_out or (clip_for_initial_track and not (tid in age_gender_id))):
+            img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+            if img.shape[0] > 0 and img.shape[1] > 0:
+                age, gender = recognize_age_gender_retail(net_age_gender, img)
+                if age == None:
+                    age_gender_id[tid] = "Unknown"
+                else:
+                    age_gender_id[tid] = str(age) + " " + str(gender)
+
         # recovery
         if tid in tracking_guard:
             if frame_no - tracking_guard[tid] >= 30:
@@ -426,7 +449,7 @@ def predict(net, img):
     return dets
 
 
-def recognize_from_video(net, net_clip):
+def recognize_from_video(net, net_clip, net_age_gender):
     min_box_area = args.min_box_area
     mot20 = args.model_type == 'mot20'
 
@@ -473,8 +496,6 @@ def recognize_from_video(net, net_clip):
     tracking_position = {}
     tracking_state = {}
     tracking_guard = {}
-    clip_id = {}
-    clip_conf = {}
     countup_state = []
 
     frame_shown = False
@@ -482,12 +503,16 @@ def recognize_from_video(net, net_clip):
     total_count_in = 0
     total_count_out = 0
 
+    clip_id = {}
+    clip_conf = {}
     clip_count = []
     total_clip_count = []
     if args.clip:
         for i in range(0, len(clip_text)):
             clip_count.append(0)
             total_clip_count.append(0)
+
+    age_gender_id = {}
 
     while True:
         ret, frame = capture.read()
@@ -516,7 +541,9 @@ def recognize_from_video(net, net_clip):
         # display
         fps_time = int(frame_no / fps)
         total_time = int(frames / fps)
-        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_conf, clip_count)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
+            net_clip, clip_id, clip_conf, clip_count,
+            net_age_gender, age_gender_id)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
@@ -585,7 +612,12 @@ def main():
     else:
         net_clip = None
 
-    recognize_from_video(net, net_clip)
+    if args.age_gender:
+        net_age_gender = create_age_gender_retail(args.env_id)
+    else:
+        net_age_gender = None
+
+    recognize_from_video(net, net_clip, net_age_gender)
 
 if __name__ == '__main__':
     main()

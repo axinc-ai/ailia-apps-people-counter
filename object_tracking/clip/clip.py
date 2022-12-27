@@ -131,7 +131,7 @@ def predict_text_feature(net, text):
     return text_feature
 
 
-def recognize_from_image(net_clip, img):
+def recognize_clip(net_clip, img):
     # img is bgr format
     net_image = net_clip["net_image"]
     net_text = net_clip["net_text"]
