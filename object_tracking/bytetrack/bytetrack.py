@@ -122,6 +122,7 @@ if args.text_inputs:
 else:
     clip_text = ["man", "woman"]
 
+clip_for_initial_track = False
 
 # ======================
 # Secondaty Functions
@@ -198,7 +199,7 @@ TRACKING_STATE_IN = 1
 TRACKING_STATE_OUT = 2
 TRACKING_STATE_DONE = 3
 
-def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_count):
+def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_conf, clip_count):
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -259,7 +260,8 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         cv2.putText(frame, text, (x, y_top),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
         if tid in clip_id:
-            cv2.putText(frame, clip_id[tid], (x, y_top + 20),
+            text = clip_text[clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
+            cv2.putText(frame, text, (x, y_top + 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
 
         # display detected person
@@ -271,12 +273,17 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
             countup_state.append({"x":x,"y":y,"frame_no":frame_no})
         if thickness != 0:
             cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
-            if args.clip and (countup_in or countup_out):
-                img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+        
+        # clip classification
+        if args.clip and (countup_in or countup_out or (clip_for_initial_track and not (tid in clip_id))):
+            img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+            if img.shape[0] > 0 and img.shape[1] > 0:
                 prob = recognize_from_image(net_clip, img)
                 i = np.argmax(prob[0])
-                clip_id[tid] = clip_text[i] + " " + str(int(prob[0][i]*100)/100)
-                clip_count[i] = clip_count[i] + 1
+                clip_id[tid] = i
+                clip_conf[tid] = prob[0][i]
+                if countup_in or countup_out:
+                    clip_count[i] = clip_count[i] + 1
         
         # recovery
         if tid in tracking_guard:
@@ -467,6 +474,7 @@ def recognize_from_video(net, net_clip):
     tracking_state = {}
     tracking_guard = {}
     clip_id = {}
+    clip_conf = {}
     countup_state = []
 
     frame_shown = False
@@ -508,7 +516,7 @@ def recognize_from_video(net, net_clip):
         # display
         fps_time = int(frame_no / fps)
         total_time = int(frames / fps)
-        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_count)
+        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time, net_clip, clip_id, clip_conf, clip_count)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
