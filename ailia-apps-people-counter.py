@@ -31,10 +31,6 @@ logger = getLogger(__name__)
 parser = get_base_parser(
     'ailia APPS people counter', None, None
 )
-parser.add_argument(
-    '--camera', type=str, default=None,
-    help='Set web cam mode.'
-)
 args = update_parser(parser)
 
 
@@ -67,14 +63,53 @@ vis_colors = get_colors(num_colors)
 # Video
 # ======================
 
+input_index = 0
+listsInput = None
+ListboxInput = None
+input_list = []
+
+def get_input_list():
+    if args.debug:
+        return ["Camera:0"]
+
+    index = 0
+    inputs = []
+    while True:
+        cap = cv2.VideoCapture(index)
+        if cap.isOpened():
+            inputs.append("Camera:"+str(index))
+        else:
+            break
+        index=index+1
+        cap.release()
+    return inputs
+
+def input_changed(event):
+    global input_index, input_list, textInputVideoDetail
+    selection = event.widget.curselection()
+    if selection:
+        input_index = selection[0]
+    else:
+        input_index = 0   
+    if "Camera:" in input_list[input_index]:
+        textInputVideoDetail.set(input_list[input_index])
+    else:
+        textInputVideoDetail.set(os.path.basename(input_list[input_index]))
+        
+    #print("input",input_index)
+
 def input_video_dialog():
-    global textInputVideoDetail
+    global textInputVideoDetail, listsInput, ListboxInput, input_index, input_list
     fTyp = [("All Files", "*.*"), ("Video files","*.mp4")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
     if len(file_name) != 0:
-        args.video = file_name
-        textInputVideoDetail.set(os.path.basename(args.video))
+        textInputVideoDetail.set(os.path.basename(file_name))
+        input_list.append(file_name)
+        listsInput.set(input_list)
+        ListboxInput.select_clear(input_index)
+        input_index = len(input_list)-1
+        ListboxInput.select_set(input_index)
 
 def output_video_dialog():
     global textOutputVideoDetail
@@ -167,6 +202,13 @@ def close_crossing_line():
         crossingLineWindow.destroy()
         crossingLineWindow = None
 
+def get_video_path():
+    global input_list, input_index
+    if "Camera:" in input_list[input_index]:
+        return input_index
+    else:
+        return input_list[input_index]
+
 def set_crossing_line():
     global g_frame, g_frame_shown
     global textCrossingLine
@@ -175,7 +217,7 @@ def set_crossing_line():
     if crossingLineWindow != None and crossingLineWindow.winfo_exists():
         return
 
-    capture = get_capture(args.video)
+    capture = get_capture(get_video_path())
     assert capture.isOpened(), 'Cannot capture source'
     ret, frame = capture.read()
     g_frame = frame
@@ -228,7 +270,13 @@ def ui():
     global root
     root = tk.Tk()
     root.title("ailia APPS People Counter")
-    root.geometry("600x300")
+    root.geometry("720x360")
+
+    # 環境情報取得
+    global input_list
+    input_list = get_input_list()
+    model_list = get_model_list()
+    env_list = get_env_list()
 
     # メインフレームの作成と設置
     frame = ttk.Frame(root)
@@ -241,10 +289,7 @@ def ui():
 
     global textInputVideoDetail
     textInputVideoDetail = tk.StringVar(frame)
-    if args.camera:
-        textInputVideoDetail.set("camera "+args.camera)
-    else:
-        textInputVideoDetail.set(args.video)
+    textInputVideoDetail.set(input_list[input_index])
     labelInputVideoDetail = tk.Label(frame, textvariable=textInputVideoDetail)
     labelInputVideoDetail.grid(row=0, column=1, sticky=tk.NW)
 
@@ -286,14 +331,24 @@ def ui():
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=stop, width=14)
     buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
 
-    model_list = get_model_list()
-    env_list = get_env_list()
+    global listsInput, ListboxInput
+
+    textInputVideoHeader = tk.StringVar(frame)
+    textInputVideoHeader.set("Inputs")
+    labelInputVideoHeader = tk.Label(frame, textvariable=textInputVideoHeader)
+    labelInputVideoHeader.grid(row=0, column=2, sticky=tk.NW)
+
+    listsInput = tk.StringVar(value=input_list)
+    ListboxInput = tk.Listbox(frame, listvariable=listsInput, width=20, height=4, selectmode="single", exportselection=False)
+    ListboxInput.bind("<<ListboxSelect>>", input_changed)
+    ListboxInput.select_set(input_index)
+    ListboxInput.grid(row=1, column=2, sticky=tk.NW, rowspan=3, columnspan=2)
 
     lists = tk.StringVar(value=model_list)
     listEnvironment =tk.StringVar(value=env_list)
 
-    ListboxModel = tk.Listbox(frame, listvariable=lists, width=40, height=3, selectmode="single", exportselection=False)
-    ListboxEnvironment = tk.Listbox(frame, listvariable=listEnvironment, width=40, height=4, selectmode="single", exportselection=False)
+    ListboxModel = tk.Listbox(frame, listvariable=lists, width=20, height=3, selectmode="single", exportselection=False)
+    ListboxEnvironment = tk.Listbox(frame, listvariable=listEnvironment, width=20, height=4, selectmode="single", exportselection=False)
 
     ListboxModel.bind("<<ListboxSelect>>", model_changed)
     ListboxEnvironment.bind("<<ListboxSelect>>", environment_changed)
@@ -304,31 +359,36 @@ def ui():
     textModel = tk.StringVar(frame)
     textModel.set("Models")
     labelModel = tk.Label(frame, textvariable=textModel)
-    labelModel.grid(row=0, column=2, sticky=tk.NW, rowspan=1)
-    ListboxModel.grid(row=1, column=2, sticky=tk.NW, rowspan=2)
+    labelModel.grid(row=4, column=2, sticky=tk.NW, rowspan=1)
+    ListboxModel.grid(row=5, column=2, sticky=tk.NW, rowspan=2)
 
     textEnvironment = tk.StringVar(frame)
     textEnvironment.set("Environment")
     labelEnvironment = tk.Label(frame, textvariable=textEnvironment)
-    labelEnvironment.grid(row=3, column=2, sticky=tk.NW, rowspan=1)
-    ListboxEnvironment.grid(row=4, column=2, sticky=tk.NW, rowspan=4)
+    labelEnvironment.grid(row=8, column=2, sticky=tk.NW, rowspan=1)
+    ListboxEnvironment.grid(row=9, column=2, sticky=tk.NW, rowspan=4)
+
+    textOptions = tk.StringVar(frame)
+    textOptions.set("Options")
+    labelOptions = tk.Label(frame, textvariable=textOptions)
+    labelOptions.grid(row=0, column=3, sticky=tk.NW)
 
     global checkBoxClipBln
     checkBoxClipBln = tkinter.BooleanVar()
     checkBoxClipBln.set(False)
     checkBoxClip = tkinter.Checkbutton(frame, variable=checkBoxClipBln, text='Clip classification')
-    checkBoxClip.grid(row=8, column=2, sticky=tk.NW, rowspan=1)
+    checkBoxClip.grid(row=1, column=3, sticky=tk.NW, rowspan=1)
 
     global clipTextEntery
     clipTextEntery = tkinter.Entry(frame, width=20)
     clipTextEntery.insert(tkinter.END,"man,woman")
-    clipTextEntery.grid(row=9, column=2, sticky=tk.NW, rowspan=1)
+    clipTextEntery.grid(row=2, column=3, sticky=tk.NW, rowspan=1)
 
     global checkBoxAgeGenderBln
     checkBoxAgeGenderBln = tkinter.BooleanVar()
     checkBoxAgeGenderBln.set(False)
     checkBoxAgeGender = tkinter.Checkbutton(frame, variable=checkBoxAgeGenderBln, text='Age gender classification')
-    checkBoxAgeGender.grid(row=10, column=2, sticky=tk.NW, rowspan=1)
+    checkBoxAgeGender.grid(row=3, column=3, sticky=tk.NW, rowspan=1)
 
     root.mainloop()
 
@@ -337,7 +397,6 @@ def ui():
 # ======================
 
 def main():
-    args.video = "demo.mp4"
     args.savepath = "output.mp4"
     args.csvpath = "output.csv"
     ui()
@@ -358,10 +417,8 @@ def run():
     cmd = sys.executable
 
     args_dict = {}#vars(args)
-    if args.camera:
-        args_dict["video"] = args.camera
-    else:
-        args_dict["video"] = args.video
+    args_dict["video"] = get_video_path()
+        
     if args.savepath:
         args_dict["savepath"] = args.savepath
     if args.csvpath:
