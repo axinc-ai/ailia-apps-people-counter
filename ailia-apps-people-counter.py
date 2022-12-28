@@ -268,6 +268,7 @@ root = None
 checkBoxClipBln = None
 checkBoxAgeGenderBln = None
 clipTextEntery = None
+checkBoxAlwaysBln = None
 
 def ui():
     # rootメインウィンドウの設定
@@ -394,6 +395,12 @@ def ui():
     checkBoxAgeGender = tkinter.Checkbutton(frame, variable=checkBoxAgeGenderBln, text='Age gender classification')
     checkBoxAgeGender.grid(row=3, column=3, sticky=tk.NW, rowspan=1)
 
+    global checkBoxAlwaysBln
+    checkBoxAlwaysBln = tkinter.BooleanVar()
+    checkBoxAlwaysBln.set(False)
+    checkBoxAlways = tkinter.Checkbutton(frame, variable=checkBoxAlwaysBln, text='Always classify for debug')
+    checkBoxAlways.grid(row=4, column=3, sticky=tk.NW, rowspan=1)
+
     root.mainloop()
 
 # ======================
@@ -441,6 +448,10 @@ def run():
     global checkBoxAgeGenderBln
     if checkBoxAgeGenderBln.get():
         args_dict["age_gender"] = True
+
+    global checkBoxAlwaysBln
+    if checkBoxAlwaysBln.get():
+        args_dict["always_classification"] = True
 
     if len(target_lines) >= 4:
         line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])

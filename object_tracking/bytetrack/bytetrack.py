@@ -112,6 +112,12 @@ parser.add_argument(
     action='store_true',
     help='Apply age gender detection.'
 )
+parser.add_argument(
+    '--always_classification',
+    action='store_true',
+    help='Always classification for debug.'
+)
+
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
 parser.add_argument("--track_buffer", type=int, default=30, help="the frames for keep lost tracks")
@@ -129,7 +135,6 @@ if args.text_inputs:
 else:
     clip_text = ["man", "woman"]
 
-clip_for_initial_track = False
 
 # ======================
 # Secondaty Functions
@@ -201,6 +206,15 @@ def display_line(frame):
             color = (255,0,0)
         cv2.circle(frame, center = target_lines[i], radius = 10, color=color, thickness=3)
 
+def display_person(frame, img, person_idx, label):
+    s = 64
+    img = cv2.resize(img, (s,s))
+    x = person_idx * s
+    if x+s < frame.shape[1]:
+        frame[frame.shape[0] - s:frame.shape[0],x:x+s,:] = img
+        cv2.putText(frame, label, (x, frame.shape[0] - s),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), thickness=1)
+
 TRACKING_STATE_NONE = 0
 TRACKING_STATE_IN = 1
 TRACKING_STATE_OUT = 2
@@ -209,6 +223,9 @@ TRACKING_STATE_DONE = 3
 def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
     net_clip, clip_id, clip_conf, clip_count,
     net_age_gender, age_gender_id, age_gender_list):
+    original_frame = frame.copy()
+    person_idx = 0
+
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -296,24 +313,31 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
             cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
         
         # clip classification
-        if args.clip and (countup_in or countup_out or (clip_for_initial_track and not (tid in clip_id))):
-            img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+        img = None
+        if (args.clip or args.age_gender) and (countup_in or countup_out or args.always_classification):
+            img = original_frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
             if img.shape[0] > 0 and img.shape[1] > 0:
-                prob = recognize_clip(net_clip, img)
-                i = np.argmax(prob[0])
-                clip_id[tid] = i
-                clip_conf[tid] = prob[0][i]
-                if countup_in or countup_out:
-                    clip_count[i] = clip_count[i] + 1
-        if args.age_gender and (countup_in or countup_out or (clip_for_initial_track and not (tid in age_gender_id))):
-            img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
-            if img.shape[0] > 0 and img.shape[1] > 0:
-                age, gender = recognize_age_gender_retail(net_age_gender, img)
-                if age == None:
-                    age_gender_id[tid] = "Unknown"
-                else:
-                    age_gender_id[tid] = str(age) + " " + str(gender)
-                age_gender_list.append(age_gender_id[tid])
+                if args.clip:
+                    prob = recognize_clip(net_clip, img)
+                    i = np.argmax(prob[0])
+                    clip_id[tid] = i
+                    clip_conf[tid] = prob[0][i]
+                    if countup_in or countup_out:
+                        clip_count[i] = clip_count[i] + 1
+                    label = clip_text[i]
+                if args.age_gender:
+                    age, gender, face = recognize_age_gender_retail(net_age_gender, img)
+                    if age == None:
+                        label = "Unknown"
+                    else:
+                        label = str(age) + " " + str(gender)
+                        img = face
+                    age_gender_id[tid] = label
+                    if countup_in or countup_out:
+                        age_gender_list.append(age_gender_id[tid])
+                if args.always_classification:
+                    display_person(frame, img, person_idx, label)
+                    person_idx = person_idx + 1
 
         # recovery
         if tid in tracking_guard:
