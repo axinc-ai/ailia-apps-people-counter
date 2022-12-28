@@ -112,6 +112,12 @@ parser.add_argument(
     action='store_true',
     help='Apply age gender detection.'
 )
+parser.add_argument(
+    '--always_classification',
+    action='store_true',
+    help='Always classification for debug.'
+)
+
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
 parser.add_argument("--track_buffer", type=int, default=30, help="the frames for keep lost tracks")
@@ -129,7 +135,6 @@ if args.text_inputs:
 else:
     clip_text = ["man", "woman"]
 
-clip_for_initial_track = False
 
 # ======================
 # Secondaty Functions
@@ -209,6 +214,8 @@ TRACKING_STATE_DONE = 3
 def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
     net_clip, clip_id, clip_conf, clip_count,
     net_age_gender, age_gender_id, age_gender_list):
+    original_frame = frame.copy()
+
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -296,8 +303,8 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
             cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
         
         # clip classification
-        if args.clip and (countup_in or countup_out or (clip_for_initial_track and not (tid in clip_id))):
-            img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+        if args.clip and (countup_in or countup_out or args.always_classification):
+            img = original_frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
             if img.shape[0] > 0 and img.shape[1] > 0:
                 prob = recognize_clip(net_clip, img)
                 i = np.argmax(prob[0])
@@ -305,15 +312,16 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
                 clip_conf[tid] = prob[0][i]
                 if countup_in or countup_out:
                     clip_count[i] = clip_count[i] + 1
-        if args.age_gender and (countup_in or countup_out or (clip_for_initial_track and not (tid in age_gender_id))):
-            img = frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
+        if args.age_gender and (countup_in or countup_out or args.always_classification):
+            img = original_frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
             if img.shape[0] > 0 and img.shape[1] > 0:
                 age, gender = recognize_age_gender_retail(net_age_gender, img)
                 if age == None:
                     age_gender_id[tid] = "Unknown"
                 else:
                     age_gender_id[tid] = str(age) + " " + str(gender)
-                age_gender_list.append(age_gender_id[tid])
+                if countup_in or countup_out:
+                    age_gender_list.append(age_gender_id[tid])
 
         # recovery
         if tid in tracking_guard:
