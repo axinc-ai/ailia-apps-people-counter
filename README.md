@@ -9,6 +9,11 @@ Count the number of people crossing a line from a video using an AI model for pe
 - People count using line crossing
 - Export count to csv
 
+## Options
+
+- Clip classification
+- Age gender classification
+
 ## Requirements
 
 - Windows, macOS, Linux
@@ -53,14 +58,6 @@ time(sec) , count(in) , count(out) , total_count(in) , total_count(out)
 0 , 0 , 0 , 0 , 0
 1 , 1 , 1 , 1 , 1
 2 , 1 , 1 , 2 , 2
-```
-
-### Use webcam
-
-Please add `--camera 0` option when open GUI.
-
-```
-python3 ailia-apps-people-counter.py --camera 0
 ```
 
 ## Architecture
