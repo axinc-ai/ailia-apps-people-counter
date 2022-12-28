@@ -219,13 +219,16 @@ def set_line(event):
 # ======================
 
 root = None
+checkBoxClipBln = None
+checkBoxAgeGenderBln = None
+clipTextEntery = None
 
 def ui():
     # rootメインウィンドウの設定
     global root
     root = tk.Tk()
     root.title("ailia APPS People Counter")
-    root.geometry("600x240")
+    root.geometry("600x300")
 
     # メインフレームの作成と設置
     frame = ttk.Frame(root)
@@ -310,6 +313,23 @@ def ui():
     labelEnvironment.grid(row=3, column=2, sticky=tk.NW, rowspan=1)
     ListboxEnvironment.grid(row=4, column=2, sticky=tk.NW, rowspan=4)
 
+    global checkBoxClipBln
+    checkBoxClipBln = tkinter.BooleanVar()
+    checkBoxClipBln.set(False)
+    checkBoxClip = tkinter.Checkbutton(frame, variable=checkBoxClipBln, text='Clip classification')
+    checkBoxClip.grid(row=8, column=2, sticky=tk.NW, rowspan=1)
+
+    global clipTextEntery
+    clipTextEntery = tkinter.Entry(frame, width=20)
+    clipTextEntery.insert(tkinter.END,"man,woman")
+    clipTextEntery.grid(row=9, column=2, sticky=tk.NW, rowspan=1)
+
+    global checkBoxAgeGenderBln
+    checkBoxAgeGenderBln = tkinter.BooleanVar()
+    checkBoxAgeGenderBln.set(False)
+    checkBoxAgeGender = tkinter.Checkbutton(frame, variable=checkBoxAgeGenderBln, text='Age gender classification')
+    checkBoxAgeGender.grid(row=10, column=2, sticky=tk.NW, rowspan=1)
+
     root.mainloop()
 
 # ======================
@@ -353,6 +373,14 @@ def run():
     global env_index
     args_dict["env_id"] = env_index
 
+    global checkBoxClipBln
+    if checkBoxClipBln.get():
+        args_dict["clip"] = True
+
+    global checkBoxAgeGenderBln
+    if checkBoxAgeGenderBln.get():
+        args_dict["age_gender"] = True
+
     if len(target_lines) >= 4:
         line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
         line2 = str(target_lines[2][0]) + " " + str(target_lines[2][1]) + " " + str(target_lines[3][0]) + " " + str(target_lines[3][1])
@@ -370,6 +398,13 @@ def run():
             else:
                 options.append("--"+key)
                 options.append(str(args_dict[key]))
+
+    global clipTextEntery
+    if clipTextEntery:
+        clip_text = clipTextEntery.get().split(",")
+        for text in clip_text:
+                options.append("--text")
+                options.append(text)#"\""+text+"\"")
 
     cmd = [cmd, "bytetrack.py"] + options
     print(" ".join(cmd))
