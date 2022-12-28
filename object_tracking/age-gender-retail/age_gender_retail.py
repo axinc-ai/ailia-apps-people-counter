@@ -69,7 +69,15 @@ def recognize_age_gender_retail(age_gender, frame):
         new_detections.append(r)
     detections = new_detections
 
+    # sort by prob
+    max_obj = None
+    for obj in detections:
+        if max_obj == None or max_obj.prob < obj.prob:
+            max_obj = obj
+
     # estimate age and gender
+    if max_obj != None:
+        detections = [max_obj]
     for obj in detections:
         # get detected face
         margin = 1.0
@@ -92,9 +100,9 @@ def recognize_age_gender_retail(age_gender, frame):
         gender = 'Female' if i == 0 else 'Male'
         age = round(age_conv3 * 100)
 
-        return gender, age
+        return gender, age, crop_img
     
-    return None, None
+    return None, None, None
 
 
 def create_age_gender_retail(env_id):
