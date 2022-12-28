@@ -343,7 +343,7 @@ def ui():
     labelInputVideoHeader.grid(row=0, column=2, sticky=tk.NW)
 
     listsInput = tk.StringVar(value=input_list)
-    ListboxInput = tk.Listbox(frame, listvariable=listsInput, width=30, height=4, selectmode="single", exportselection=False)
+    ListboxInput = tk.Listbox(frame, listvariable=listsInput, width=26, height=4, selectmode="single", exportselection=False)
     ListboxInput.bind("<<ListboxSelect>>", input_changed)
     ListboxInput.select_set(input_index)
     ListboxInput.grid(row=1, column=2, sticky=tk.NW, rowspan=3, columnspan=2)
@@ -351,8 +351,8 @@ def ui():
     lists = tk.StringVar(value=model_list)
     listEnvironment =tk.StringVar(value=env_list)
 
-    ListboxModel = tk.Listbox(frame, listvariable=lists, width=30, height=3, selectmode="single", exportselection=False)
-    ListboxEnvironment = tk.Listbox(frame, listvariable=listEnvironment, width=30, height=4, selectmode="single", exportselection=False)
+    ListboxModel = tk.Listbox(frame, listvariable=lists, width=26, height=3, selectmode="single", exportselection=False)
+    ListboxEnvironment = tk.Listbox(frame, listvariable=listEnvironment, width=26, height=4, selectmode="single", exportselection=False)
 
     ListboxModel.bind("<<ListboxSelect>>", model_changed)
     ListboxEnvironment.bind("<<ListboxSelect>>", environment_changed)
