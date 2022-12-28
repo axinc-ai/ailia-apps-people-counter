@@ -208,7 +208,7 @@ TRACKING_STATE_DONE = 3
 
 def line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
     net_clip, clip_id, clip_conf, clip_count,
-    net_age_gender, age_gender_id):
+    net_age_gender, age_gender_id, age_gender_list):
     display_line(frame)
 
     global human_count_in, human_count_out
@@ -307,6 +307,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
                     age_gender_id[tid] = "Unknown"
                 else:
                     age_gender_id[tid] = str(age) + " " + str(gender)
+                age_gender_list.append(age_gender_id[tid])
 
         # recovery
         if tid in tracking_guard:
@@ -335,16 +336,23 @@ def open_csv():
         for i in range(0, len(clip_text)):
             csv.write(" , ")
             csv.write(clip_text[i])
+    if args.age_gender:
+        csv.write(" , ")
+        csv.write("age_gender(list)")
     csv.write("\n")
     return csv
 
 
-def write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count):
+def write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list):
     csv.write(str(fps_time) + " , " + str(human_count_in - total_count_in) + " , " +  str(human_count_out - total_count_out) + " , " + str(human_count_in) + " , " + str(human_count_out))
     if args.clip:
         for i in range(0, len(clip_text)):
             csv.write(" , ")
             csv.write(str(clip_count[i] - total_clip_count[i]))
+    if args.age_gender:
+        for age_gender in age_gender_list:
+            csv.write(" , ")
+            csv.write(age_gender)
     csv.write("\n")
     csv.flush()
 
@@ -513,6 +521,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
             total_clip_count.append(0)
 
     age_gender_id = {}
+    age_gender_list = []
 
     while True:
         ret, frame = capture.read()
@@ -543,7 +552,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
         total_time = int(frames / fps)
         line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
             net_clip, clip_id, clip_conf, clip_count,
-            net_age_gender, age_gender_id)
+            net_age_gender, age_gender_id, age_gender_list)
         res_img = frame
 
         #res_img = frame_vis_generator(frame, online_tlwhs, online_ids)
@@ -561,7 +570,8 @@ def recognize_from_video(net, net_clip, net_age_gender):
         if csv is not None:
             global human_count_in, human_count_out
             if before_fps_time != fps_time:
-                write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count)
+                write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list)
+                age_gender_list = []
                 before_fps_time = fps_time
                 total_count_in = human_count_in
                 total_count_out = human_count_out
