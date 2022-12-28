@@ -224,6 +224,14 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
             tracking_state[tid] = TRACKING_STATE_NONE
         tracking_position[tid].append({"x":x,"y":y,"frame_no":frame_no})
 
+        # trim older tacking position
+        trim_tacking_position = []
+        for data in tracking_position[tid]:
+            if frame_no - data["frame_no"] >= 10:
+                continue
+            trim_tacking_position.append(data)
+        tracking_position[tid] = trim_tacking_position
+
         # get history
         before = None
         line_before = None
@@ -232,8 +240,6 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         color = vis_colors[int(tid) % num_colors]
         original_color = color
         for data in tracking_position[tid]:
-            if frame_no - data["frame_no"] >= 10:
-                continue
             if before == None:
                 before = data
                 line_before = data

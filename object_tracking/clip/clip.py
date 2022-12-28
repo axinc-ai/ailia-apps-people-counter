@@ -164,7 +164,7 @@ def create_clip(text_inputs, env_id):
 
     memory_mode = ailia.get_memory_mode(
         reduce_constant=True, ignore_input_with_initializer=True,
-        reduce_interstage=False, reuse_interstage=True)
+        reduce_interstage=False, reuse_interstage=False)
     net_image = ailia.Net(MODEL_IMAGE_PATH, WEIGHT_IMAGE_PATH, env_id=env_id, memory_mode=memory_mode)
     net_text = ailia.Net(MODEL_TEXT_PATH, WEIGHT_TEXT_PATH, env_id=env_id, memory_mode=memory_mode)
     text_feature = predict_text_feature(net_text, text_inputs)
