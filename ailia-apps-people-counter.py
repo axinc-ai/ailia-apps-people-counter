@@ -242,7 +242,7 @@ def set_line(event):
 root = None
 checkBoxClipBln = None
 checkBoxAgeGenderBln = None
-clipTextEntery = None
+clipTextEntry = None
 checkBoxAlwaysBln = None
 
 def ui():
@@ -359,10 +359,10 @@ def ui():
     checkBoxClip = tkinter.Checkbutton(frame, variable=checkBoxClipBln, text='Clip classification')
     checkBoxClip.grid(row=1, column=3, sticky=tk.NW, rowspan=1)
 
-    global clipTextEntery
-    clipTextEntery = tkinter.Entry(frame, width=20)
-    clipTextEntery.insert(tkinter.END,"man,woman")
-    clipTextEntery.grid(row=2, column=3, sticky=tk.NW, rowspan=1)
+    global clipTextEntry
+    clipTextEntry = tkinter.Entry(frame, width=20)
+    clipTextEntry.insert(tkinter.END,"man,woman")
+    clipTextEntry.grid(row=2, column=3, sticky=tk.NW, rowspan=1)
 
     global checkBoxAgeGenderBln
     checkBoxAgeGenderBln = tkinter.BooleanVar()
@@ -446,9 +446,9 @@ def run():
                 options.append("--"+key)
                 options.append(str(args_dict[key]))
 
-    global clipTextEntery
-    if clipTextEntery:
-        clip_text = clipTextEntery.get().split(",")
+    global clipTextEntry
+    if clipTextEntry:
+        clip_text = clipTextEntry.get().split(",")
         for text in clip_text:
                 options.append("--text")
                 options.append(text)#"\""+text+"\"")
