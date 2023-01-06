@@ -7,6 +7,7 @@ from matplotlib import cm
 from PIL import Image, ImageTk
 
 import ailia
+import json
 
 # import original modules
 sys.path.append('./util')
@@ -153,24 +154,28 @@ def model_changed(event):
 # Line crossing
 # ======================
 
-target_lines = []
+target_lines = [
+    {"id":"line0","lines":[(0,0),(100,0),(100,100),(0,100)]}
+]
 human_count = 0
 
 def display_line(frame):
-    if len(target_lines) >= 4:
-        cv2.line(frame, target_lines[2], target_lines[3], (255,0,0), thickness=5)
-        cv2.putText(frame, "OUT", (target_lines[2][0] + 5,target_lines[2][1] + 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,0,0), thickness=3)
-    if len(target_lines) >= 2:
-        cv2.line(frame, target_lines[0], target_lines[1], (0,0,255), thickness=5)
-        cv2.putText(frame, "IN", (target_lines[0][0] + 5,target_lines[0][1] + 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
-    for i in range(0, len(target_lines)):
-        if i <= 1:
-            color = (0,0,255)
-        else:
-            color = (255,0,0)
-        cv2.circle(frame, center = target_lines[i], radius = 10, color=color, thickness=3)
+    for id in range(len(target_lines)):
+        lines = target_lines[id]["lines"]
+        if len(lines) >= 4:
+            cv2.line(frame, (lines[2][0], lines[2][1]), (lines[3][0], lines[3][1]), (255,0,0), thickness=5)
+            cv2.putText(frame, "OUT", (lines[2][0] + 5,lines[2][1] + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,0,0), thickness=3)
+        if len(lines) >= 2:
+            cv2.line(frame, (lines[0][0], lines[0][1]) , (lines[1][0], lines[1][1]), (0,0,255), thickness=5)
+            cv2.putText(frame, "IN", (lines[0][0] + 5,lines[0][1] + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
+        for i in range(0, len(lines)):
+            if i <= 1:
+                color = (0,0,255)
+            else:
+                color = (255,0,0)
+            cv2.circle(frame, center = (lines[i][0], lines[i][1]), radius = 10, color=color, thickness=3)
 
 g_frame = None
 crossingLineWindow = None
@@ -228,12 +233,104 @@ def set_line(event):
     global target_lines
     x = event.x
     y = event.y
-    if len(target_lines)>=4:
-        target_lines = []
-    target_lines.append((x,y))
+    lines = target_lines[0]["lines"]
+    if len(lines)>=4:
+        lines.clear()
+    else:
+        lines.append((x,y))
     frame = g_frame.copy()
     display_line(frame)
     update_frame_image(frame)
+
+# ======================
+# Menu functions
+# ======================
+
+def get_settings():
+    global target_lines
+    settings = {}
+    settings["target_lines"] = target_lines
+
+    global model_index
+    settings["model_type"] = get_model_list()[model_index]
+
+    global clipTextEntry
+    settings["clip_text"] = clipTextEntry.get()
+
+    global checkBoxAgeGenderBln
+    if checkBoxAgeGenderBln.get():
+        settings["age_gender"] = True
+    else:
+        settings["age_gender"] = False
+
+    global checkBoxClipBln
+    if checkBoxClipBln.get():
+        settings["clip"] = True
+    else:
+        settings["clip"] = False
+
+    global checkBoxAlwaysBln
+    if checkBoxAlwaysBln.get():
+        settings["always_classify_for_debug"] = True
+    else:
+        settings["always_classify_for_debug"] = False
+
+    return settings
+
+def set_settings(settings):
+    global target_lines
+    target_lines = settings["target_lines"]
+
+    global model_index, ListboxModel
+    model_list = get_model_list()
+    for i in range(len(model_list)):
+        if settings["model_type"] == model_list[i]:
+            model_index = i
+    ListboxModel.select_set(model_index)
+
+    global clipTextEntry
+    clipTextEntry.delete(0, tk.END)
+    clipTextEntry.insert(0, str(settings["clip_text"]))
+
+    global checkBoxAgeGenderBln
+    checkBoxAgeGenderBln.set(settings["age_gender"])
+
+    global checkBoxClipBln
+    checkBoxClipBln.set(settings["clip"])
+
+    global checkBoxAlwaysBln
+    checkBoxAlwaysBln.set(settings["always_classify_for_debug"])
+
+def menu_file_open_click():
+    fTyp = [("Config files","*.json")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        with open(file_name, 'r') as json_file:
+            settings = json.load(json_file)
+            set_settings(settings)
+
+def menu_file_saveas_click():
+    fTyp = [("Config files", "*.json")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        with open(file_name, 'w') as json_file:
+            settings = get_settings()
+            json.dump(settings, json_file)
+
+def menu(root):
+    menubar = tk.Menu(root)
+
+    menu_file = tk.Menu(menubar, tearoff = False)
+    menu_file.add_command(label = "Load settings",  command = menu_file_open_click,  accelerator="Ctrl+O")
+    menu_file.add_command(label = "Save settings", command = menu_file_saveas_click, accelerator="Ctrl+S")
+    #menu_file.add_separator() # 仕切り線
+    #menu_file.add_command(label = "Quit",            command = root.destroy)
+
+    menubar.add_cascade(label="File", menu=menu_file)
+
+    root.config(menu=menubar)
 
 # ======================
 # GUI functions
@@ -244,6 +341,7 @@ checkBoxClipBln = None
 checkBoxAgeGenderBln = None
 clipTextEntry = None
 checkBoxAlwaysBln = None
+ListboxModel = None
 
 def ui():
     # rootメインウィンドウの設定
@@ -251,6 +349,9 @@ def ui():
     root = tk.Tk()
     root.title("ailia APPS People Counter")
     root.geometry("720x360")
+
+    # メニュー作成
+    menu(root)
 
     # 環境情報取得
     global input_list
@@ -311,7 +412,7 @@ def ui():
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=stop, width=14)
     buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
 
-    global listsInput, ListboxInput
+    global listsInput, ListboxInput, ListboxModel
 
     textInputVideoHeader = tk.StringVar(frame)
     textInputVideoHeader.set("Inputs")
@@ -428,10 +529,18 @@ def run():
     if checkBoxAlwaysBln.get():
         args_dict["always_classification"] = True
 
-    if len(target_lines) >= 4:
-        line1 = str(target_lines[0][0]) + " " + str(target_lines[0][1]) + " " + str(target_lines[1][0]) + " " + str(target_lines[1][1])
-        line2 = str(target_lines[2][0]) + " " + str(target_lines[2][1]) + " " + str(target_lines[3][0]) + " " + str(target_lines[3][1])
-        args_dict["crossing_line"] = line1 + " " + line2
+    crossing_line = ""
+    for i in range(len(target_lines)):
+        if (len(target_lines[i]["lines"]) >= 4):
+            lines = target_lines[i]["lines"]
+            line_id = target_lines[i]["id"]
+            line1 = str(lines[0][0]) + " " + str(lines[0][1]) + " " + str(lines[1][0]) + " " + str(lines[1][1])
+            line2 = str(lines[2][0]) + " " + str(lines[2][1]) + " " + str(lines[3][0]) + " " + str(lines[3][1])
+            if crossing_line != "":
+                crossing_line = crossing_line + " "
+            crossing_line = crossing_line + line_id + " " + line1 + " " + line2
+    if crossing_line != "":
+        args_dict["crossing_line"] = crossing_line
 
     options = []
     for key in args_dict:
