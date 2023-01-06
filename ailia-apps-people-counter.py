@@ -7,6 +7,7 @@ from matplotlib import cm
 from PIL import Image, ImageTk
 
 import ailia
+import json
 
 # import original modules
 sys.path.append('./util')
@@ -236,6 +237,96 @@ def set_line(event):
     update_frame_image(frame)
 
 # ======================
+# Menu functions
+# ======================
+
+def get_settings():
+    global target_lines
+    settings = {}
+    settings["target_lines"] = target_lines
+
+    global model_index
+    settings["model_type"] = get_model_list()[model_index]
+
+    global clipTextEntry
+    settings["clip_text"] = clipTextEntry.get()
+
+    global checkBoxAgeGenderBln
+    if checkBoxAgeGenderBln.get():
+        settings["age_gender"] = True
+    else:
+        settings["age_gender"] = False
+
+    global checkBoxClipBln
+    if checkBoxClipBln.get():
+        settings["clip"] = True
+    else:
+        settings["clip"] = False
+
+    global checkBoxAlwaysBln
+    if checkBoxAlwaysBln.get():
+        settings["always_classify_for_debug"] = True
+    else:
+        settings["always_classify_for_debug"] = False
+
+    return settings
+
+def set_settings(settings):
+    global target_lines
+    target_lines = settings["target_lines"]
+
+    global model_index, ListboxModel
+    model_list = get_model_list()
+    for i in range(len(model_list)):
+        if settings["model_type"] == model_list[i]:
+            model_index = i
+    ListboxModel.select_set(model_index)
+
+    global clipTextEntry
+    clipTextEntry.delete(0, tk.END)
+    clipTextEntry.insert(0, str(settings["clip_text"]))
+
+    global checkBoxAgeGenderBln
+    checkBoxAgeGenderBln.set(settings["age_gender"])
+
+    global checkBoxClipBln
+    checkBoxClipBln.set(settings["clip"])
+
+    global checkBoxAlwaysBln
+    checkBoxAlwaysBln.set(settings["always_classify_for_debug"])
+
+def menu_file_open_click():
+    fTyp = [("Config files","*.json")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        with open(file_name, 'r') as json_file:
+            settings = json.load(json_file)
+            set_settings(settings)
+
+def menu_file_saveas_click():
+    fTyp = [("Config files", "*.json")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
+    if len(file_name) != 0:
+        with open(file_name, 'w') as json_file:
+            settings = get_settings()
+            json.dump(settings, json_file)
+
+def menu(root):
+    menubar = tk.Menu(root)
+
+    menu_file = tk.Menu(menubar, tearoff = False)
+    menu_file.add_command(label = "Load settings",  command = menu_file_open_click,  accelerator="Ctrl+O")
+    menu_file.add_command(label = "Save settings", command = menu_file_saveas_click, accelerator="Ctrl+S")
+    #menu_file.add_separator() # 仕切り線
+    #menu_file.add_command(label = "Quit",            command = root.destroy)
+
+    menubar.add_cascade(label="File", menu=menu_file)
+
+    root.config(menu=menubar)
+
+# ======================
 # GUI functions
 # ======================
 
@@ -244,6 +335,7 @@ checkBoxClipBln = None
 checkBoxAgeGenderBln = None
 clipTextEntry = None
 checkBoxAlwaysBln = None
+ListboxModel = None
 
 def ui():
     # rootメインウィンドウの設定
@@ -251,6 +343,9 @@ def ui():
     root = tk.Tk()
     root.title("ailia APPS People Counter")
     root.geometry("720x360")
+
+    # メニュー作成
+    menu(root)
 
     # 環境情報取得
     global input_list
@@ -311,7 +406,7 @@ def ui():
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=stop, width=14)
     buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
 
-    global listsInput, ListboxInput
+    global listsInput, ListboxInput, ListboxModel
 
     textInputVideoHeader = tk.StringVar(frame)
     textInputVideoHeader.set("Inputs")
