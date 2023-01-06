@@ -17,11 +17,6 @@ from webcamera_utils import get_capture, get_writer  # noqa: E402
 from logging import getLogger  # noqa: E402
 
 # post processing
-sys.path.append('../clip')
-from clip import create_clip, recognize_clip
-sys.path.append('../age-gender-retail')
-from age_gender_retail import create_age_gender_retail, recognize_age_gender_retail
-
 logger = getLogger(__name__)
 
 from bytetrack_utils import multiclass_nms
@@ -124,6 +119,19 @@ parser.add_argument("--track_buffer", type=int, default=30, help="the frames for
 parser.add_argument("--match_thresh", type=float, default=0.8, help="matching threshold for tracking")
 parser.add_argument('--min-box-area', type=float, default=10, help='filter out tiny boxes')
 args = update_parser(parser)
+
+
+# ======================
+# Dependency
+# ======================
+
+sys.path.append('../clip')
+sys.path.append('../age-gender-retail')
+
+if args.clip:
+    from clip import create_clip, recognize_clip
+if args.age_gender:
+    from age_gender_retail import create_age_gender_retail, recognize_age_gender_retail
 
 
 # ======================
@@ -524,11 +532,12 @@ def recognize_from_video(net, net_clip, net_age_gender):
         target_lines.append( (f_w // 2 + m, f_h) )
     else:
         texts= args.crossing_line.split(" ")
+        p = 1 # 0 is id
         target_lines = []
-        target_lines.append( (int(texts[0]),int(texts[1])) )
-        target_lines.append( (int(texts[2]),int(texts[3])) )
-        target_lines.append( (int(texts[4]),int(texts[5])) )
-        target_lines.append( (int(texts[6]),int(texts[7])) )
+        target_lines.append( (int(texts[p+0]),int(texts[p+1])) )
+        target_lines.append( (int(texts[p+2]),int(texts[p+3])) )
+        target_lines.append( (int(texts[p+4]),int(texts[p+5])) )
+        target_lines.append( (int(texts[p+6]),int(texts[p+7])) )
 
     frame_no = 0
     tracking_position = {}

@@ -20,6 +20,7 @@ Count the number of people crossing a line from a video using an AI model for pe
 - Python 3.7 and later
 - [ailia SDK](https://github.com/axinc-ai/ailia-models/blob/master/TUTORIAL.md) 1.2.13 and later
 - lap (`pip3 install lap`)
+- ftfy (`pip3 install ftfy`) if you use clip
 
 ## Basic Usage
 
