@@ -163,11 +163,11 @@ def display_line(frame):
     for id in range(len(target_lines)):
         lines = target_lines[id]["lines"]
         if len(lines) >= 4:
-            cv2.line(frame, lines[2], lines[3], (255,0,0), thickness=5)
+            cv2.line(frame, (lines[2][0], lines[2][1]), (lines[3][0], lines[3][1]), (255,0,0), thickness=5)
             cv2.putText(frame, "OUT", (lines[2][0] + 5,lines[2][1] + 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255,0,0), thickness=3)
         if len(lines) >= 2:
-            cv2.line(frame, lines[0], lines[1], (0,0,255), thickness=5)
+            cv2.line(frame, (lines[0][0], lines[0][1]) , (lines[1][0], lines[1][1]), (0,0,255), thickness=5)
             cv2.putText(frame, "IN", (lines[0][0] + 5,lines[0][1] + 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
         for i in range(0, len(lines)):
@@ -175,7 +175,7 @@ def display_line(frame):
                 color = (0,0,255)
             else:
                 color = (255,0,0)
-            cv2.circle(frame, center = lines[i], radius = 10, color=color, thickness=3)
+            cv2.circle(frame, center = (lines[i][0], lines[i][1]), radius = 10, color=color, thickness=3)
 
 g_frame = None
 crossingLineWindow = None
