@@ -66,11 +66,7 @@ time(sec) , count(in) , count(out) , total_count(in) , total_count(out)
 
 You can send people count information to Google Analytics GA4 using Measurement Protocol.
 
-From GA4 Properties -> Management -> Data Streams, create a Measurement Protocol API secret and get the API Secret. Also, get the Measurement ID from the data stream.
-
-Set the acquired API Secret and Measurement ID from Analytics in the menu bar.
-
-The measurement results can be confirmed from the real-time analysis event of Google Analytics. As events, person_in and person_out are issued.
+[Connect to Google Analytics](ANALYTICS.md)
 
 ## Architecture
 
