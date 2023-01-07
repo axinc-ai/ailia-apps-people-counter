@@ -246,6 +246,9 @@ def set_line(event):
 # Menu functions
 # ======================
 
+api_secret = ""
+measurement_id = ""
+
 def get_settings():
     global target_lines
     settings = {}
@@ -275,6 +278,10 @@ def get_settings():
     else:
         settings["always_classify_for_debug"] = False
 
+    global api_secret, measurement_id
+    settings["api_secret"] = api_secret
+    settings["measurement_id"] = measurement_id
+
     return settings
 
 def set_settings(settings):
@@ -301,6 +308,20 @@ def set_settings(settings):
     global checkBoxAlwaysBln
     checkBoxAlwaysBln.set(settings["always_classify_for_debug"])
 
+    global api_secret
+    if "api_secret" in settings:
+        api_secret = settings["api_secret"]
+        global apiSecretEntry
+        if apiSecretEntry != None:
+            apiSecretEntry.set(api_secret)
+
+    global measurement_id
+    if "measurement_id" in settings:
+        measurement_id = settings["measurement_id"]
+        global measurementIdEntry
+        if measurementIdEntry != None:
+            measurementIdEntry.set(measurement_id)
+
 def menu_file_open_click():
     fTyp = [("Config files","*.json")]
     iDir = os.path.abspath(os.path.dirname(__file__))
@@ -319,16 +340,71 @@ def menu_file_saveas_click():
             settings = get_settings()
             json.dump(settings, json_file)
 
+analyticsWindow = None
+apiSecretEntry = None
+measurementIdEntry = None
+
+def menu_analytics_open():
+    global analyticsWindow
+
+    if analyticsWindow != None and analyticsWindow.winfo_exists():
+        return
+
+    analyticsWindow = tk.Toplevel()
+    analyticsWindow.title("Google Analytics Settings")
+    analyticsWindow.geometry("300x300")
+
+    frame = ttk.Frame(analyticsWindow)
+    frame.pack(padx=10,pady=10)
+
+    textOptions = tk.StringVar(frame)
+    textOptions.set("API_SECRET")
+    labelOptions = tk.Label(frame, textvariable=textOptions)
+    labelOptions.grid(row=0, column=0, sticky=tk.NW)
+
+    global apiSecretEntry
+    apiSecretEntry = tkinter.Entry(frame, width=20)
+    apiSecretEntry.insert(tkinter.END,api_secret)
+    apiSecretEntry.grid(row=1, column=0, sticky=tk.NW, rowspan=1)
+
+    textOptions = tk.StringVar(frame)
+    textOptions.set("MEASUREMENT_ID")
+    labelOptions = tk.Label(frame, textvariable=textOptions)
+    labelOptions.grid(row=2, column=0, sticky=tk.NW)
+
+    global measurementIdEntry
+    measurementIdEntry = tkinter.Entry(frame, width=20)
+    measurementIdEntry.insert(tkinter.END,measurement_id)
+    measurementIdEntry.grid(row=3, column=0, sticky=tk.NW, rowspan=1)
+
+    setAnalyticsSettingsText = tk.StringVar(frame)
+    setAnalyticsSettingsText.set("OK")
+    buttonSetAnalyticsSettings = tk.Button(frame, textvariable=setAnalyticsSettingsText, command=menu_analytics_set, width=14)
+    buttonSetAnalyticsSettings.grid(row=4, column=0, sticky=tk.NW)
+
+def menu_analytics_set():
+    global apiSecretEntry, measurementIdEntry
+    global api_secret, measurement_id
+    api_secret = apiSecretEntry.get()
+    measurement_id = measurementIdEntry.get()
+    global analyticsWindow
+    analyticsWindow.destroy()
+    analyticsWindow = None
+
 def menu(root):
     menubar = tk.Menu(root)
 
     menu_file = tk.Menu(menubar, tearoff = False)
     menu_file.add_command(label = "Load settings",  command = menu_file_open_click,  accelerator="Ctrl+O")
     menu_file.add_command(label = "Save settings", command = menu_file_saveas_click, accelerator="Ctrl+S")
-    #menu_file.add_separator() # 仕切り線
-    #menu_file.add_command(label = "Quit",            command = root.destroy)
+    menu_file.add_separator() # 仕切り線
+    menu_file.add_command(label = "Quit",            command = root.destroy)
+
+    menu_analytics = tk.Menu(menubar, tearoff = False)
+    menu_analytics.add_command(label = "Analytics settings",  command = menu_analytics_open,  accelerator="Ctrl+A")
 
     menubar.add_cascade(label="File", menu=menu_file)
+    menubar.add_cascade(label="Analytics", menu=menu_analytics)
 
     root.config(menu=menubar)
 
@@ -511,23 +587,17 @@ def run():
     if args.csvpath:
         args_dict["csvpath"] = args.csvpath
     
-    global model_index
-    args_dict["model_type"] = get_model_list()[model_index]
-
     global env_index
     args_dict["env_id"] = env_index
 
-    global checkBoxClipBln
-    if checkBoxClipBln.get():
-        args_dict["clip"] = True
-
-    global checkBoxAgeGenderBln
-    if checkBoxAgeGenderBln.get():
-        args_dict["age_gender"] = True
-
-    global checkBoxAlwaysBln
-    if checkBoxAlwaysBln.get():
-        args_dict["always_classification"] = True
+    settings = get_settings()
+    args_dict["clip"] = settings["clip"]
+    args_dict["age_gender"] = settings["age_gender"]
+    args_dict["always_classification"] = settings["always_classify_for_debug"]
+    args_dict["model_type"] = settings["model_type"]
+    if settings["api_secret"] != "" and settings["measurement_id"] != "":
+        args_dict["analytics_api_secret"] = settings["api_secret"]
+        args_dict["analytics_measurement_id"] = settings["measurement_id"]
 
     crossing_line = ""
     for i in range(len(target_lines)):

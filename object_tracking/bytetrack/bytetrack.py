@@ -178,7 +178,8 @@ def send_analytics(event_id):
     r = requests.post(url, data=data, verify=True)
     if r.status_code != 204:
         logger.error("analytics send error "+str(r.status_code))
-
+    else:
+        logger.info("analytics send success "+str(r.status_code))
 
 # ======================
 # Secondaty Functions
