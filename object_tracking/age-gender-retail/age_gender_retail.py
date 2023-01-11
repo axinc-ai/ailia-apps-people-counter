@@ -15,7 +15,7 @@ from model_utils import check_and_download_models  # noqa: E402
 from utils import get_base_parser, get_savepath, update_parser  # noqa: E402
 
 from blazeface_utils import compute_blazeface, crop_blazeface  # noqa: E402
-from face_detection_adas_mod import mod  # noqa
+from face_detection_adas_util import compute_face_detection_adas  # noqa
 
 logger = getLogger(__name__)
 
@@ -37,8 +37,8 @@ FACE_DETECTION_ADAS_MODEL_PATH = 'face-detection-adas-0001.onnx.prototxt'
 FACE_DETECTION_ADAS_REMOTE_PATH = 'https://storage.googleapis.com/ailia-models/face-detection-adas/'
 FACE_DETECTION_ADAS_PRIORBOX_PATH = '../age-gender-retail/mbox_priorbox.npy'
 
-#DETECTION_MODEL_TYPE = "blazeface"
-DETECTION_MODEL_TYPE = "face-detection-adas"
+DETECTION_MODEL_TYPE = "blazeface"
+#DETECTION_MODEL_TYPE = "face-detection-adas"
 
 if DETECTION_MODEL_TYPE == "blazeface":
     FACE_WEIGHT_PATH =BLAZEFACE_WEIGHT_PATH
@@ -100,25 +100,19 @@ def setup_detector(net):
 
         def _detector(img):
             im_h, im_w, _ = img.shape
-            pred = mod.predict(model_info, img)
-            (bboxes, scores) = pred
+            detections = compute_face_detection_adas(model_info, img)
 
-            enlarge = 1.2
+            # adjust face rectangle
             detect_object = []
-            for i in range(len(bboxes)):
-                (x1, y1, x2, y2) = bboxes[i]
-                w, h = (x2 - x1), (y2 - y1)
-                cx, cy = x1 + w / 2, y1 + h / 2
-                w = h = max(w, h) * enlarge
-                score = scores[i]
-
+            for d in detections:
+                enlarge = 1.2
                 r = ailia.DetectorObject(
-                    category=0,
-                    prob=score,
-                    x=(cx - w / 2) / im_w,
-                    y=(cy - h / 2) / im_h,
-                    w=w / im_w,
-                    h=h / im_h,
+                    category=d.category,
+                    prob=d.prob,
+                    x=d.x - d.w * (enlarge - 1.0) / 2,
+                    y=d.y - d.h * (enlarge - 1.0) / 2,
+                    w=d.w * enlarge,
+                    h=d.h * enlarge,
                 )
                 detect_object.append(r)
 
