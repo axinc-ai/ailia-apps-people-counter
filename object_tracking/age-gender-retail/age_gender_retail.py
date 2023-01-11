@@ -14,8 +14,8 @@ from image_utils import imread, load_image  # noqa: E402
 from model_utils import check_and_download_models  # noqa: E402
 from utils import get_base_parser, get_savepath, update_parser  # noqa: E402
 
-sys.path.append('../blazeface')
 from blazeface_utils import compute_blazeface, crop_blazeface  # noqa: E402
+from face_detection_adas_mod import mod  # noqa
 
 logger = getLogger(__name__)
 
@@ -27,14 +27,107 @@ WEIGHT_PATH = 'age-gender-recognition-retail-0013.onnx'
 MODEL_PATH = 'age-gender-recognition-retail-0013.onnx.prototxt'
 REMOTE_PATH = 'https://storage.googleapis.com/ailia-models/age-gender-recognition-retail/'
 
-FACE_WEIGHT_PATH = 'blazefaceback.onnx'
-FACE_MODEL_PATH = 'blazefaceback.onnx.prototxt'
-FACE_REMOTE_PATH = "https://storage.googleapis.com/ailia-models/blazeface/"
+BLAZEFACE_WEIGHT_PATH = 'blazefaceback.onnx'
+BLAZEFACE_MODEL_PATH = 'blazefaceback.onnx.prototxt'
+BLAZEFACE_REMOTE_PATH = "https://storage.googleapis.com/ailia-models/blazeface/"
+BLAZEFACE_ANCHOR_PATH = '../age-gender-retail/anchorsback.npy'
+
+FACE_DETECTION_ADAS_WEIGHT_PATH = 'face-detection-adas-0001.onnx'
+FACE_DETECTION_ADAS_MODEL_PATH = 'face-detection-adas-0001.onnx.prototxt'
+FACE_DETECTION_ADAS_REMOTE_PATH = 'https://storage.googleapis.com/ailia-models/face-detection-adas/'
+FACE_DETECTION_ADAS_PRIORBOX_PATH = '../age-gender-retail/mbox_priorbox.npy'
+
+#DETECTION_MODEL_TYPE = "blazeface"
+DETECTION_MODEL_TYPE = "face-detection-adas"
+
+if DETECTION_MODEL_TYPE == "blazeface":
+    FACE_WEIGHT_PATH =BLAZEFACE_WEIGHT_PATH
+    FACE_MODEL_PATH = BLAZEFACE_MODEL_PATH
+    FACE_REMOTE_PATH = BLAZEFACE_REMOTE_PATH
+else:
+    FACE_WEIGHT_PATH =FACE_DETECTION_ADAS_WEIGHT_PATH
+    FACE_MODEL_PATH = FACE_DETECTION_ADAS_MODEL_PATH
+    FACE_REMOTE_PATH = FACE_DETECTION_ADAS_REMOTE_PATH
+
 FACE_IMAGE_HEIGHT = 256
 FACE_IMAGE_WIDTH = 256
 FACE_MIN_SCORE_THRESH = 0.5
 
 IMAGE_SIZE = 62
+
+
+# ======================
+# Secondaty Functions
+# ======================
+
+def setup_detector(net):
+    if DETECTION_MODEL_TYPE == 'blazeface':
+        from blazeface_utils import compute_blazeface  # noqa
+
+        def _detector(img):
+            detections = compute_blazeface(
+                net,
+                img,
+                anchor_path=BLAZEFACE_ANCHOR_PATH,
+                back=True,
+                min_score_thresh=FACE_MIN_SCORE_THRESH
+            )
+
+            # adjust face rectangle
+            detect_object = []
+            for d in detections:
+                margin = 1.5
+                r = ailia.DetectorObject(
+                    category=d.category,
+                    prob=d.prob,
+                    x=d.x - d.w * (margin - 1.0) / 2,
+                    y=d.y - d.h * (margin - 1.0) / 2 - d.h * margin / 8,
+                    w=d.w * margin,
+                    h=d.h * margin,
+                )
+                detect_object.append(r)
+
+            return detect_object
+
+        detector = _detector
+    else:
+        prior_box = np.squeeze(np.load(FACE_DETECTION_ADAS_PRIORBOX_PATH))
+
+        model_info = {
+            'net': net,
+            'prior_box': prior_box,
+        }
+
+        def _detector(img):
+            im_h, im_w, _ = img.shape
+            pred = mod.predict(model_info, img)
+            (bboxes, scores) = pred
+
+            enlarge = 1.2
+            detect_object = []
+            for i in range(len(bboxes)):
+                (x1, y1, x2, y2) = bboxes[i]
+                w, h = (x2 - x1), (y2 - y1)
+                cx, cy = x1 + w / 2, y1 + h / 2
+                w = h = max(w, h) * enlarge
+                score = scores[i]
+
+                r = ailia.DetectorObject(
+                    category=0,
+                    prob=score,
+                    x=(cx - w / 2) / im_w,
+                    y=(cy - h / 2) / im_h,
+                    w=w / im_w,
+                    h=h / im_h,
+                )
+                detect_object.append(r)
+
+            return detect_object
+
+        detector = _detector
+
+    return detector
+
 
 # ======================
 # Main functions
@@ -46,28 +139,7 @@ def recognize_age_gender_retail(age_gender, frame):
     detector = age_gender["detector"]
 
     # detect face
-    detections = compute_blazeface(
-        detector,
-        frame,
-        anchor_path='../age-gender-retail/anchorsback.npy',
-        back=True,
-        min_score_thresh=FACE_MIN_SCORE_THRESH
-    )
-
-    # adjust face rectangle
-    new_detections = []
-    for detection in detections:
-        margin = 1.5
-        r = ailia.DetectorObject(
-            category=detection.category,
-            prob=detection.prob,
-            x=detection.x-detection.w*(margin-1.0)/2,
-            y=detection.y-detection.h*(margin-1.0)/2-detection.h*margin/8,
-            w=detection.w*margin,
-            h=detection.h*margin,
-        )
-        new_detections.append(r)
-    detections = new_detections
+    detections = detector(frame)
 
     # sort by prob
     max_obj = None
@@ -121,6 +193,7 @@ def create_age_gender_retail(env_id):
         MODEL_PATH, WEIGHT_PATH, env_id=env_id
     )
     detector = ailia.Net(FACE_MODEL_PATH, FACE_WEIGHT_PATH, env_id=env_id)
+    detector = setup_detector(detector)
     return {"net": net, "detector": detector}
 
 
