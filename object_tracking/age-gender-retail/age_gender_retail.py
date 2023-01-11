@@ -4,6 +4,7 @@ import time
 import ailia
 import cv2
 import numpy as np
+import math
 
 sys.path.append('../../util')
 # logger
@@ -16,6 +17,7 @@ from utils import get_base_parser, get_savepath, update_parser  # noqa: E402
 
 from blazeface_utils import compute_blazeface, crop_blazeface  # noqa: E402
 from face_detection_adas_util import compute_face_detection_adas  # noqa
+import hopenet_utils as hut
 
 logger = getLogger(__name__)
 
@@ -49,9 +51,17 @@ else:
     FACE_MODEL_PATH = FACE_DETECTION_ADAS_MODEL_PATH
     FACE_REMOTE_PATH = FACE_DETECTION_ADAS_REMOTE_PATH
 
+HEAD_POSE_MODEL_NAME = 'hopenet_lite'
+#HEAD_POSE_MODEL_NAME = 'hopenet_robust_alpha1'
+HEAD_POSE_WEIGHT_PATH = f'{HEAD_POSE_MODEL_NAME}.onnx'
+HEAD_POSE_MODEL_PATH = f'{HEAD_POSE_MODEL_NAME}.onnx.prototxt'
+HEAD_POSE_REMOTE_PATH = f'https://storage.googleapis.com/ailia-models/hopenet/'
+
 FACE_IMAGE_HEIGHT = 256
 FACE_IMAGE_WIDTH = 256
 FACE_MIN_SCORE_THRESH = 0.5
+
+HEAD_POSE_IMAGE_SIZE = 224
 
 IMAGE_SIZE = 62
 
@@ -123,6 +133,32 @@ def setup_detector(net):
     return detector
 
 
+def head_pose_estimation(crop_img, hp_estimator):
+    img = cv2.resize(crop_img, (HEAD_POSE_IMAGE_SIZE, HEAD_POSE_IMAGE_SIZE))
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape((1, 1, 1, 3))
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape((1, 1, 1, 3))
+    img = (img / 255.0 - mean) / std
+    img = np.moveaxis(img, -1, 1)
+    preds_hp = hp_estimator.run(img)
+    theta = 0.0
+    head_poses = hut.head_pose_postprocess(preds_hp, theta)
+    return head_poses
+
+
+def age_gender_estimation(crop_img, net):
+    img = cv2.resize(crop_img, (IMAGE_SIZE, IMAGE_SIZE))
+    img = np.expand_dims(img, axis=0)  # 次元合せ
+    output = net.predict([img])
+    prob, age_conv3 = output
+    prob = prob[0][0][0]
+    age_conv3 = age_conv3[0][0][0][0]
+
+    i = np.argmax(prob)
+    gender = 'Female' if i == 0 else 'Male'
+    age = round(age_conv3 * 100)
+    return age, gender
+
+
 # ======================
 # Main functions
 # ======================
@@ -131,6 +167,7 @@ def recognize_age_gender_retail(age_gender, frame):
     # frame is bgr
     net = age_gender["net"]
     detector = age_gender["detector"]
+    hp_estimator = age_gender["hp_estimator"]
 
     # detect face
     detections = detector(frame)
@@ -153,22 +190,18 @@ def recognize_age_gender_retail(age_gender, frame):
         if crop_img.shape[0] <= 0 or crop_img.shape[1] <= 0:
             continue
 
-        img = cv2.resize(crop_img, (IMAGE_SIZE, IMAGE_SIZE))
-        img = np.expand_dims(img, axis=0)  # 次元合せ
+        # Head pose estimation
+        head_poses = head_pose_estimation(crop_img, hp_estimator)
+        #print(head_poses)
+        if abs(head_poses[0][0]) >= math.pi/4 or abs(head_poses[0][1]) >= math.pi/4: # 45 degree
+            return None, None, crop_img
 
-        # inference
-        output = net.predict([img])
-        prob, age_conv3 = output
-        prob = prob[0][0][0]
-        age_conv3 = age_conv3[0][0][0][0]
-
-        i = np.argmax(prob)
-        gender = 'Female' if i == 0 else 'Male'
-        age = round(age_conv3 * 100)
+        # Age gender estimation
+        age, gender = age_gender_estimation(crop_img, net)
 
         return gender, age, crop_img
     
-    return None, None, None
+    return None, None, frame
 
 
 def create_age_gender_retail(env_id):
@@ -181,6 +214,10 @@ def create_age_gender_retail(env_id):
     check_and_download_models(
         FACE_WEIGHT_PATH, FACE_MODEL_PATH, FACE_REMOTE_PATH
     )
+    logger.info('=== face direction model ===')
+    check_and_download_models(
+        HEAD_POSE_WEIGHT_PATH, HEAD_POSE_MODEL_PATH, HEAD_POSE_REMOTE_PATH
+    )
 
     # net initialize
     net = ailia.Net(
@@ -188,7 +225,12 @@ def create_age_gender_retail(env_id):
     )
     detector = ailia.Net(FACE_MODEL_PATH, FACE_WEIGHT_PATH, env_id=env_id)
     detector = setup_detector(detector)
-    return {"net": net, "detector": detector}
+    hp_estimator = ailia.Net(
+            HEAD_POSE_MODEL_PATH, HEAD_POSE_WEIGHT_PATH, env_id=env_id
+    )
+    hp_estimator.set_input_shape((1, HEAD_POSE_IMAGE_SIZE, HEAD_POSE_IMAGE_SIZE, 3))
+
+    return {"net": net, "detector": detector, "hp_estimator": hp_estimator}
 
 
 if __name__ == '__main__':
