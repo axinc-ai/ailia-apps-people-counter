@@ -65,6 +65,7 @@ HEAD_POSE_IMAGE_SIZE = 224
 
 IMAGE_SIZE = 62
 
+HEAD_POSE_ESTIMATION = False
 PROFILE = False
 
 # ======================
@@ -214,16 +215,17 @@ def recognize_age_gender_retail(age_gender, frame):
             logger.info(f'\tage_gender_estimation processing time {end - start} ms')
 
         # Head pose estimation
-        if PROFILE:
-            start = int(round(time.time() * 1000))
-        head_poses = head_pose_estimation(crop_img, hp_estimator)
-        if PROFILE:
-            end = int(round(time.time() * 1000))
-            logger.info(f'\thead_pose_estimation processing time {end - start} ms')
+        if HEAD_POSE_ESTIMATION:
+            if PROFILE:
+                start = int(round(time.time() * 1000))
+            head_poses = head_pose_estimation(crop_img, hp_estimator)
+            if PROFILE:
+                end = int(round(time.time() * 1000))
+                logger.info(f'\thead_pose_estimation processing time {end - start} ms')
 
-        draw_head_pose(crop_img, head_poses[0])
-        if abs(head_poses[0][1]) >= math.pi/4 or abs(head_poses[0][2]) >= math.pi/4: # 45 degree
-            return None, None, crop_img
+            draw_head_pose(crop_img, head_poses[0])
+            if abs(head_poses[0][1]) >= math.pi/4 or abs(head_poses[0][2]) >= math.pi/4: # 45 degree
+                return None, None, crop_img
 
         return gender, age, crop_img
     
@@ -240,10 +242,11 @@ def create_age_gender_retail(env_id):
     check_and_download_models(
         FACE_WEIGHT_PATH, FACE_MODEL_PATH, FACE_REMOTE_PATH
     )
-    logger.info('=== face direction model ===')
-    check_and_download_models(
-        HEAD_POSE_WEIGHT_PATH, HEAD_POSE_MODEL_PATH, HEAD_POSE_REMOTE_PATH
-    )
+    if HEAD_POSE_ESTIMATION:
+        logger.info('=== face direction model ===')
+        check_and_download_models(
+            HEAD_POSE_WEIGHT_PATH, HEAD_POSE_MODEL_PATH, HEAD_POSE_REMOTE_PATH
+        )
 
     # net initialize
     net = ailia.Net(
@@ -254,7 +257,10 @@ def create_age_gender_retail(env_id):
     hp_estimator = ailia.Net(
             HEAD_POSE_MODEL_PATH, HEAD_POSE_WEIGHT_PATH, env_id=env_id
     )
-    hp_estimator.set_input_shape((1, HEAD_POSE_IMAGE_SIZE, HEAD_POSE_IMAGE_SIZE, 3))
+    if HEAD_POSE_ESTIMATION:
+        hp_estimator.set_input_shape((1, HEAD_POSE_IMAGE_SIZE, HEAD_POSE_IMAGE_SIZE, 3))
+    else:
+        hp_estimator = None
 
     return {"net": net, "detector": detector, "hp_estimator": hp_estimator}
 
