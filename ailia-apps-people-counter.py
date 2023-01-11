@@ -138,7 +138,7 @@ def environment_changed(event):
 model_index = 0
 
 def get_model_list():
-    model_list = ["mot17_s", "mot17_tiny", "yolox_tiny"]
+    model_list = ["mot17_s", "mot17_tiny"]
     return model_list  
 
 def model_changed(event):
