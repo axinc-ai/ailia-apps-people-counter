@@ -13,6 +13,7 @@ Count the number of people crossing a line from a video using an AI model for pe
 
 - Clip classification
 - Age gender classification
+- Google Analytics connection
 
 ## Requirements
 
@@ -60,6 +61,12 @@ time(sec) , count(in) , count(out) , total_count(in) , total_count(out)
 1 , 1 , 1 , 1 , 1
 2 , 1 , 1 , 2 , 2
 ```
+
+### Google Analytics Connection
+
+You can send people count information to Google Analytics GA4 using Measurement Protocol.
+
+[Connect to Google Analytics](ANALYTICS.md)
 
 ## Architecture
 

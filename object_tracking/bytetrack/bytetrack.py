@@ -1,5 +1,8 @@
 import sys
 import time
+import uuid
+import requests
+import json
 
 import numpy as np
 import cv2
@@ -112,6 +115,14 @@ parser.add_argument(
     action='store_true',
     help='Always classification for debug.'
 )
+parser.add_argument(
+    '--analytics_api_secret', type=str, default=None,
+    help='Send analytics data to google analytics.'
+)
+parser.add_argument(
+    '--analytics_measurement_id', type=str, default=None,
+    help='Send analytics data to google analytics.'
+)
 
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
@@ -119,7 +130,6 @@ parser.add_argument("--track_buffer", type=int, default=30, help="the frames for
 parser.add_argument("--match_thresh", type=float, default=0.8, help="matching threshold for tracking")
 parser.add_argument('--min-box-area', type=float, default=10, help='filter out tiny boxes')
 args = update_parser(parser)
-
 
 # ======================
 # Dependency
@@ -143,6 +153,33 @@ if args.text_inputs:
 else:
     clip_text = ["man", "woman"]
 
+# ======================
+# Analytics
+# ======================
+
+def send_analytics(event_id):
+    GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+    client_id = str(uuid.uuid4())
+    name = event_id
+    payload = {
+        "client_id": client_id,
+        "events": [
+              {
+                  "name": name,
+                  "params": {
+                      "action": "open"
+                  }
+              }
+        ]
+    }
+    data = json.dumps(payload)
+    url = "%s?api_secret=%s&measurement_id=%s" % (
+        GA_ENDPOINT, args.analytics_api_secret, args.analytics_measurement_id)
+    r = requests.post(url, data=data, verify=True)
+    if r.status_code != 204:
+        logger.error("analytics send error "+str(r.status_code))
+    else:
+        logger.info("analytics send success "+str(r.status_code))
 
 # ======================
 # Secondaty Functions
@@ -317,6 +354,12 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         if countup_in or countup_out:
             thickness = 10
             countup_state.append({"x":x,"y":y,"frame_no":frame_no})
+            if args.analytics_api_secret and args.analytics_measurement_id:
+                if countup_in:
+                    event_id = "person_in"
+                else:
+                    event_id = "person_out"
+                send_analytics(event_id)
         if thickness != 0:
             cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
         
