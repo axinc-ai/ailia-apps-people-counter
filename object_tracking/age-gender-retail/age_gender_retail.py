@@ -159,6 +159,15 @@ def age_gender_estimation(crop_img, net):
     return age, gender
 
 
+def draw_head_pose(crop_img, head_pose):
+    p1 = (crop_img.shape[1] // 2, crop_img.shape[0] // 2)
+    p2 = (int(p1[0] - p1[0] * math.sin(head_pose[1])), int(p1[1] + p1[1] * math.sin(head_pose[2])))
+    l = max(crop_img.shape[1], crop_img.shape[0]) // 20
+    if l < 1:
+        l = 1
+    cv2.line(crop_img, p1, p2, (255,0,0), thickness=l)
+
+
 # ======================
 # Main functions
 # ======================
@@ -190,14 +199,14 @@ def recognize_age_gender_retail(age_gender, frame):
         if crop_img.shape[0] <= 0 or crop_img.shape[1] <= 0:
             continue
 
-        # Head pose estimation
-        head_poses = head_pose_estimation(crop_img, hp_estimator)
-        #print(head_poses)
-        if abs(head_poses[0][0]) >= math.pi/4 or abs(head_poses[0][1]) >= math.pi/4: # 45 degree
-            return None, None, crop_img
-
         # Age gender estimation
         age, gender = age_gender_estimation(crop_img, net)
+
+        # Head pose estimation
+        head_poses = head_pose_estimation(crop_img, hp_estimator)
+        draw_head_pose(crop_img, head_poses[0])
+        if abs(head_poses[0][1]) >= math.pi/4 or abs(head_poses[0][2]) >= math.pi/4: # 45 degree
+            return None, None, crop_img
 
         return gender, age, crop_img
     
