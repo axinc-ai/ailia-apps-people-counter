@@ -104,10 +104,10 @@ def compute_face_detection_adas(model_info, img):
     net = model_info['net']
     prior_box = model_info['prior_box']
 
-    img = preprocess(img)
+    preprocess_img = preprocess(img)
 
     # feedforward
-    output = net.predict([img])
+    output = net.predict([preprocess_img])
     mbox_loc, mbox_conf = output
 
     bboxes = decode_bbox(mbox_loc[0], prior_box[0], prior_box[1])
@@ -125,13 +125,11 @@ def compute_face_detection_adas(model_info, img):
     bboxes = bboxes[i].astype(int)
     scores = scores[i]
 
-    enlarge = 1.2
     detect_object = []
     for i in range(len(bboxes)):
         (x1, y1, x2, y2) = bboxes[i]
         w, h = (x2 - x1), (y2 - y1)
         cx, cy = x1 + w / 2, y1 + h / 2
-        w = h = max(w, h) * enlarge
         score = scores[i]
 
         r = ailia.DetectorObject(

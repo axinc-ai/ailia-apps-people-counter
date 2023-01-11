@@ -25,7 +25,7 @@ logger = getLogger(__name__)
 # Parameters
 # ======================
 
-WEIGHT_PATH = 'age-gender-recognition-retail-0013.onnx'
+WEIGHT_PATH = 'age-gender-recognition-retail-0013.onnx' # 5ms
 MODEL_PATH = 'age-gender-recognition-retail-0013.onnx.prototxt'
 REMOTE_PATH = 'https://storage.googleapis.com/ailia-models/age-gender-recognition-retail/'
 
@@ -39,8 +39,8 @@ FACE_DETECTION_ADAS_MODEL_PATH = 'face-detection-adas-0001.onnx.prototxt'
 FACE_DETECTION_ADAS_REMOTE_PATH = 'https://storage.googleapis.com/ailia-models/face-detection-adas/'
 FACE_DETECTION_ADAS_PRIORBOX_PATH = '../age-gender-retail/mbox_priorbox.npy'
 
-DETECTION_MODEL_TYPE = "blazeface"
-#DETECTION_MODEL_TYPE = "face-detection-adas"
+#DETECTION_MODEL_TYPE = "blazeface" # 28ms
+DETECTION_MODEL_TYPE = "face-detection-adas" # 53ms
 
 if DETECTION_MODEL_TYPE == "blazeface":
     FACE_WEIGHT_PATH =BLAZEFACE_WEIGHT_PATH
@@ -51,8 +51,8 @@ else:
     FACE_MODEL_PATH = FACE_DETECTION_ADAS_MODEL_PATH
     FACE_REMOTE_PATH = FACE_DETECTION_ADAS_REMOTE_PATH
 
-HEAD_POSE_MODEL_NAME = 'hopenet_lite'
-#HEAD_POSE_MODEL_NAME = 'hopenet_robust_alpha1'
+HEAD_POSE_MODEL_NAME = 'hopenet_lite' # 25ms
+#HEAD_POSE_MODEL_NAME = 'hopenet_robust_alpha1' #59ms
 HEAD_POSE_WEIGHT_PATH = f'{HEAD_POSE_MODEL_NAME}.onnx'
 HEAD_POSE_MODEL_PATH = f'{HEAD_POSE_MODEL_NAME}.onnx.prototxt'
 HEAD_POSE_REMOTE_PATH = f'https://storage.googleapis.com/ailia-models/hopenet/'
@@ -65,6 +65,7 @@ HEAD_POSE_IMAGE_SIZE = 224
 
 IMAGE_SIZE = 62
 
+PROFILE = False
 
 # ======================
 # Secondaty Functions
@@ -179,7 +180,12 @@ def recognize_age_gender_retail(age_gender, frame):
     hp_estimator = age_gender["hp_estimator"]
 
     # detect face
+    if PROFILE:
+        start = int(round(time.time() * 1000))
     detections = detector(frame)
+    if PROFILE:
+        end = int(round(time.time() * 1000))
+        logger.info(f'\tface detection processing time {end - start} ms')
 
     # sort by prob
     max_obj = None
@@ -200,10 +206,21 @@ def recognize_age_gender_retail(age_gender, frame):
             continue
 
         # Age gender estimation
+        if PROFILE:
+            start = int(round(time.time() * 1000))
         age, gender = age_gender_estimation(crop_img, net)
+        if PROFILE:
+            end = int(round(time.time() * 1000))
+            logger.info(f'\tage_gender_estimation processing time {end - start} ms')
 
         # Head pose estimation
+        if PROFILE:
+            start = int(round(time.time() * 1000))
         head_poses = head_pose_estimation(crop_img, hp_estimator)
+        if PROFILE:
+            end = int(round(time.time() * 1000))
+            logger.info(f'\thead_pose_estimation processing time {end - start} ms')
+
         draw_head_pose(crop_img, head_poses[0])
         if abs(head_poses[0][1]) >= math.pi/4 or abs(head_poses[0][2]) >= math.pi/4: # 45 degree
             return None, None, crop_img
