@@ -99,8 +99,6 @@ def compute_face_detection_adas(model_info, img):
     score_th = THRESHOLD
     nms_th = IOU
 
-    im_h, im_w, _ = img.shape
-
     net = model_info['net']
     prior_box = model_info['prior_box']
 
@@ -118,8 +116,8 @@ def compute_face_detection_adas(model_info, img):
     bboxes = bboxes[i]
     scores = mbox_conf[i][:, 1]
 
-    bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * im_w
-    bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * im_h
+    bboxes[:, [0, 2]] = bboxes[:, [0, 2]] * IMAGE_WIDTH
+    bboxes[:, [1, 3]] = bboxes[:, [1, 3]] * IMAGE_HEIGHT
 
     i = nms_boxes(bboxes, scores, nms_th)
     bboxes = bboxes[i].astype(int)
@@ -135,10 +133,10 @@ def compute_face_detection_adas(model_info, img):
         r = ailia.DetectorObject(
             category=0,
             prob=score,
-            x=(cx - w / 2) / im_w,
-            y=(cy - h / 2) / im_h,
-            w=w / im_w,
-            h=h / im_h,
+            x=(cx - w / 2) / IMAGE_WIDTH,
+            y=(cy - h / 2) / IMAGE_HEIGHT,
+            w=w / IMAGE_WIDTH,
+            h=h / IMAGE_HEIGHT,
         )
         detect_object.append(r)
 

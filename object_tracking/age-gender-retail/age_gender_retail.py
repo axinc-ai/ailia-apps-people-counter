@@ -254,10 +254,10 @@ def create_age_gender_retail(env_id):
     )
     detector = ailia.Net(FACE_MODEL_PATH, FACE_WEIGHT_PATH, env_id=env_id)
     detector = setup_detector(detector)
-    hp_estimator = ailia.Net(
-            HEAD_POSE_MODEL_PATH, HEAD_POSE_WEIGHT_PATH, env_id=env_id
-    )
     if HEAD_POSE_ESTIMATION:
+        hp_estimator = ailia.Net(
+                HEAD_POSE_MODEL_PATH, HEAD_POSE_WEIGHT_PATH, env_id=env_id
+        )
         hp_estimator.set_input_shape((1, HEAD_POSE_IMAGE_SIZE, HEAD_POSE_IMAGE_SIZE, 3))
     else:
         hp_estimator = None
