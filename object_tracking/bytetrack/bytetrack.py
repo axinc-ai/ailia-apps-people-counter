@@ -3,6 +3,7 @@ import time
 import uuid
 import requests
 import json
+import datetime
 
 import numpy as np
 import cv2
@@ -412,7 +413,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
 
 def open_csv():
     csv = open(args.csvpath, mode = 'w')
-    csv.write("time(sec) , count(in) , count(out) , total_count(in) , total_count(out)")
+    csv.write("sec , time , count(in) , count(out) , total_count(in) , total_count(out)")
     if args.clip:
         for i in range(0, len(clip_text)):
             csv.write(" , ")
@@ -424,8 +425,8 @@ def open_csv():
     return csv
 
 
-def write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list):
-    csv.write(str(fps_time) + " , " + str(human_count_in - total_count_in) + " , " +  str(human_count_out - total_count_out) + " , " + str(human_count_in) + " , " + str(human_count_out))
+def write_csv(csv, fps_time, time_stamp, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list):
+    csv.write(str(fps_time) + " , " + time_stamp + " , " + str(human_count_in - total_count_in) + " , " +  str(human_count_out - total_count_out) + " , " + str(human_count_in) + " , " + str(human_count_out))
     if args.clip:
         for i in range(0, len(clip_text)):
             csv.write(" , ")
@@ -652,7 +653,8 @@ def recognize_from_video(net, net_clip, net_age_gender):
         if csv is not None:
             global human_count_in, human_count_out
             if before_fps_time != fps_time:
-                write_csv(csv, fps_time, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list)
+                time_stamp = str(datetime.datetime.now())
+                write_csv(csv, fps_time, time_stamp, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list)
                 age_gender_list = []
                 before_fps_time = fps_time
                 total_count_in = human_count_in

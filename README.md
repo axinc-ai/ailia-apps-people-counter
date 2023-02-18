@@ -56,10 +56,10 @@ b. Push "Output csv" button to select output csv
 The examples of csv file.
 
 ```
-time(sec) , count(in) , count(out) , total_count(in) , total_count(out)
-0 , 0 , 0 , 0 , 0
-1 , 1 , 1 , 1 , 1
-2 , 1 , 1 , 2 , 2
+sec , time, count(in) , count(out) , total_count(in) , total_count(out)
+0 , 2023-02-18 12:32:52.289135 , 0 , 0 , 0 , 0
+1 , 2023-02-18 12:32:53.794513 , 1 , 1 , 1 , 1
+2 , 2023-02-18 12:32:55.195774 , 1 , 1 , 2 , 2
 ```
 
 ### Google Analytics Connection
