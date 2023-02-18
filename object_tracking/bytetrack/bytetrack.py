@@ -382,7 +382,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
                         label = "Unknown"
                     else:
                         label = str(age) + " " + str(gender)
-                        img = face
+                    img = face
                     age_gender_id[tid] = label
                     if countup_in or countup_out:
                         age_gender_list.append(age_gender_id[tid])
