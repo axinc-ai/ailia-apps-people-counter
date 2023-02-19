@@ -110,6 +110,16 @@ def output_csv_dialog():
         args.csvpath = file_name
         textOutputCsvDetail.set(os.path.basename(args.csvpath))
 
+
+def output_img_dialog():
+    global textOutputImageDetail
+    fTyp = [("Output Image Folder", "*")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.askdirectory(initialdir=iDir)
+    if len(file_name) != 0:
+        args.imgpath = file_name
+        textOutputImageDetail.set(os.path.basename(args.imgpath))
+
 # ======================
 # Environment
 # ======================
@@ -478,15 +488,26 @@ def ui():
     labelOutputCsvDetail= tk.Label(frame, textvariable=textOutputCsvDetail)
     labelOutputCsvDetail.grid(row=3, column=1, sticky=tk.NW)
 
+    textOutputImage = tk.StringVar(frame)
+    textOutputImage.set("Output image")
+    buttonOutputImage = tk.Button(frame, textvariable=textOutputImage, command=output_img_dialog, width=14)
+    buttonOutputImage.grid(row=4, column=0, sticky=tk.NW)
+
+    global textOutputImageDetail
+    textOutputImageDetail = tk.StringVar(frame)
+    textOutputImageDetail.set(args.imgpath)
+    labelOutputImageDetail= tk.Label(frame, textvariable=textOutputImageDetail)
+    labelOutputImageDetail.grid(row=4, column=1, sticky=tk.NW)
+
     textTrainVideo = tk.StringVar(frame)
     textTrainVideo.set("Run")
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=run, width=14)
-    buttonTrainVideo.grid(row=4, column=0, sticky=tk.NW)
+    buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
 
     textTrainVideo = tk.StringVar(frame)
     textTrainVideo.set("Stop")
     buttonTrainVideo = tk.Button(frame, textvariable=textTrainVideo, command=stop, width=14)
-    buttonTrainVideo.grid(row=5, column=0, sticky=tk.NW)
+    buttonTrainVideo.grid(row=6, column=0, sticky=tk.NW)
 
     global listsInput, ListboxInput, ListboxModel
 
@@ -562,6 +583,7 @@ def ui():
 def main():
     args.savepath = "output.mp4"
     args.csvpath = "output.csv"
+    args.imgpath = ""
     ui()
 
 import subprocess
@@ -586,6 +608,8 @@ def run():
         args_dict["savepath"] = args.savepath
     if args.csvpath:
         args_dict["csvpath"] = args.csvpath
+    if args.imgpath:
+        args_dict["imgpath"] = args.imgpath
     
     global env_index
     args_dict["env_id"] = env_index
