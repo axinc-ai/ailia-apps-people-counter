@@ -677,9 +677,9 @@ def recognize_from_video(net, net_clip, net_age_gender):
         if count_exists_in_frame:
             if args.imgpath:
                 path = time_stamp
-                path = path.replace(" ","_")
-                path = path.replace(".","_")
-                path = path.replace(":","_")
+                path = path.replace(" ","-")
+                path = path.replace(".","-")
+                path = path.replace(":","-")
                 path = args.imgpath+"/"+path+".jpg"
                 cv2.imwrite(path, res_img)
 
