@@ -97,6 +97,10 @@ parser.add_argument(
     help='Set output csv.'
 )
 parser.add_argument(
+    '--imgpath', type=str, default=None,
+    help='Set output image.'
+)
+parser.add_argument(
     '--clip',
     action='store_true',
     help='Apply clip after detection.'
@@ -271,6 +275,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
     net_age_gender, age_gender_id, age_gender_list):
     original_frame = frame.copy()
     person_idx = 0
+    count_exists_in_frame = False
 
     display_line(frame)
 
@@ -353,6 +358,7 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
         if tracking_state[tid] != TRACKING_STATE_NONE and tracking_state[tid] != TRACKING_STATE_DONE:
             thickness = 3
         if countup_in or countup_out:
+            count_exists_in_frame = True
             thickness = 10
             countup_state.append({"x":x,"y":y,"frame_no":frame_no})
             if args.analytics_api_secret and args.analytics_measurement_id:
@@ -405,6 +411,8 @@ def line_crossing(frame, online_targets, tracking_position, tracking_state, trac
 
     cv2.putText(frame, "Count(In) : " + str(human_count_in)+" Count(Out) : " + str(human_count_out)+" Time(sec) : "+str(fps_time)+ " / "+str(total_time), (0, 40),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
+    
+    return count_exists_in_frame
 
 
 # ======================
@@ -613,6 +621,9 @@ def recognize_from_video(net, net_clip, net_age_gender):
         if frame_shown and cv2.getWindowProperty('frame', cv2.WND_PROP_VISIBLE) == 0:
             break
 
+        # timestamp
+        time_stamp = str(datetime.datetime.now())
+
         # inference
         output = predict(net, frame)
 
@@ -630,10 +641,10 @@ def recognize_from_video(net, net_clip, net_age_gender):
                 online_ids.append(tid)
                 online_scores.append(t.score)
 
-        # display
+        # count line crossing
         fps_time = int(frame_no / fps)
         total_time = int(frames / fps)
-        line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
+        count_exists_in_frame = line_crossing(frame, online_targets, tracking_position, tracking_state, tracking_guard, countup_state, frame_no, fps_time, total_time,
             net_clip, clip_id, clip_conf, clip_count,
             net_age_gender, age_gender_id, age_gender_list)
         res_img = frame
@@ -653,7 +664,6 @@ def recognize_from_video(net, net_clip, net_age_gender):
         if csv is not None:
             global human_count_in, human_count_out
             if before_fps_time != fps_time:
-                time_stamp = str(datetime.datetime.now())
                 write_csv(csv, fps_time, time_stamp, human_count_in, total_count_in, human_count_out, total_count_out, clip_count, total_clip_count, age_gender_list)
                 age_gender_list = []
                 before_fps_time = fps_time
@@ -662,6 +672,16 @@ def recognize_from_video(net, net_clip, net_age_gender):
                 if args.clip:
                     for i in range(0, len(clip_text)):
                         total_clip_count[i] = clip_count[i]
+
+        # save frame
+        if count_exists_in_frame:
+            if args.imgpath:
+                path = time_stamp
+                path = path.replace(" ","-")
+                path = path.replace(".","-")
+                path = path.replace(":","-")
+                path = args.imgpath+"/"+path+".jpg"
+                cv2.imwrite(path, res_img)
 
         frame_no = frame_no + 1
 

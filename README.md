@@ -50,8 +50,9 @@ Count (out) is incremented when passing through the line of in to go out. Count 
 
 ### Write output to video and csv
 
-a. Push "Output video" button to select output video
-b. Push "Output csv" button to select output csv
+a. Push "Output video" button to select the path for video
+b. Push "Output csv" button to select the path for csv
+c. Push "Output image" button to select the folder for detected image
 
 The examples of csv file.
 
