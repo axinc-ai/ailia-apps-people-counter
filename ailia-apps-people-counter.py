@@ -36,7 +36,7 @@ args = update_parser(parser)
 
 
 # ======================
-# Video
+# Input Video
 # ======================
 
 input_index = 0
@@ -91,34 +91,44 @@ def input_video_dialog():
         input_index = len(input_list)-1
         ListboxInput.select_set(input_index)
 
-def output_video_dialog():
+# ======================
+# Output Video, Csv, Image
+# ======================
+
+def apply_path_to_ui():
     global textOutputVideoDetail
+    textOutputVideoDetail.set(os.path.basename(args.savepath))
+    global textOutputCsvDetail
+    textOutputCsvDetail.set(os.path.basename(args.csvpath))
+    global textOutputImageDetail
+    textOutputImageDetail.set(os.path.basename(args.imgpath))
+
+
+def output_video_dialog():
     fTyp = [("Output Video File", "*")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
     if len(file_name) != 0:
         args.savepath = file_name
-        textOutputVideoDetail.set(os.path.basename(args.savepath))
+        apply_path_to_ui()
 
 
 def output_csv_dialog():
-    global textOutputCsvDetail
     fTyp = [("Output Csv File", "*")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.asksaveasfilename(filetypes=fTyp, initialdir=iDir)
     if len(file_name) != 0:
         args.csvpath = file_name
-        textOutputCsvDetail.set(os.path.basename(args.csvpath))
+        apply_path_to_ui()
 
 
 def output_img_dialog():
-    global textOutputImageDetail
     fTyp = [("Output Image Folder", "*")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.askdirectory(initialdir=iDir)
     if len(file_name) != 0:
         args.imgpath = file_name
-        textOutputImageDetail.set(os.path.basename(args.imgpath))
+        apply_path_to_ui()
 
 # ======================
 # Environment
@@ -292,6 +302,10 @@ def get_settings():
     settings["api_secret"] = api_secret
     settings["measurement_id"] = measurement_id
 
+    settings["savepath"] = args.savepath
+    settings["csvpath"] = args.csvpath
+    settings["imgpath"] = args.imgpath
+    
     return settings
 
 def set_settings(settings):
@@ -331,6 +345,15 @@ def set_settings(settings):
         global measurementIdEntry
         if measurementIdEntry != None:
             measurementIdEntry.set(measurement_id)
+    
+    if "savepath" in settings:
+        args.savepath = settings["savepath"]
+    if "csvpath" in settings:
+        args.csvpath = settings["csvpath"]
+    if "imgpath" in settings:
+        args.imgpath = settings["imgpath"]
+    
+    apply_path_to_ui()
 
 def menu_file_open_click():
     fTyp = [("Config files","*.json")]
@@ -603,18 +626,17 @@ def run():
 
     args_dict = {}#vars(args)
     args_dict["video"] = get_video_path()
-        
-    if args.savepath:
-        args_dict["savepath"] = args.savepath
-    if args.csvpath:
-        args_dict["csvpath"] = args.csvpath
-    if args.imgpath:
-        args_dict["imgpath"] = args.imgpath
-    
+          
     global env_index
     args_dict["env_id"] = env_index
 
     settings = get_settings()
+    if settings["savepath"]:
+        args_dict["savepath"] = settings["savepath"]
+    if settings["csvpath"]:
+        args_dict["csvpath"] = settings["csvpath"]
+    if settings["imgpath"]:
+        args_dict["imgpath"] = settings["imgpath"]
     args_dict["clip"] = settings["clip"]
     args_dict["age_gender"] = settings["age_gender"]
     args_dict["always_classification"] = settings["always_classify_for_debug"]
