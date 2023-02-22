@@ -1,3 +1,6 @@
+# ailia APPS People Counter
+# (C) 2022-2023 AXELL CORPORATION
+
 import sys
 import time
 
@@ -604,8 +607,8 @@ def ui():
 # ======================
 
 def main():
-    args.savepath = "output.mp4"
-    args.csvpath = "output.csv"
+    args.savepath = ""
+    args.csvpath = ""
     args.imgpath = ""
     ui()
 
