@@ -546,7 +546,7 @@ def predict(net, img):
     if args.category == "vehicle":
         for c in range(80):
             if c != 2 and c != 5 and c != 7:
-                output[:, 5+c] = 0
+                output[..., 5 + c] = 0
     else:
         output = output[..., :6] # person
 
