@@ -63,6 +63,10 @@ sec , time, count(in) , count(out) , total_count(in) , total_count(out)
 2 , 2023-02-18 12:32:55.195774 , 1 , 1 , 2 , 2
 ```
 
+### Vehicle count
+
+Vehicles can be counted by specifying vehicle as the category. The model must specify yolo. Among yolo categories, count car, truck, and bus as vehicles.
+
 ### Google Analytics Connection
 
 You can send people count information to Google Analytics GA4 using Measurement Protocol.
