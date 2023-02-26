@@ -161,7 +161,7 @@ def environment_changed(event):
 model_index = 0
 
 def get_model_list():
-    model_list = ["mot17_s", "mot17_tiny"]
+    model_list = ["mot17_s", "mot17_tiny", "yolox_s"]
     return model_list  
 
 def model_changed(event):
@@ -172,6 +172,24 @@ def model_changed(event):
     else:
         model_index = 0
     #print("model",model_index)
+
+# ======================
+# Category
+# ======================
+
+category_index = 0
+
+def get_category_list():
+    category_list = ["person", "car"]
+    return category_list  
+
+def category_changed(event):
+    global category_index
+    selection = event.widget.curselection()
+    if selection:
+        category_index = selection[0]
+    else:
+        category_index = 0
 
 # ======================
 # Line crossing
@@ -280,6 +298,9 @@ def get_settings():
     global model_index
     settings["model_type"] = get_model_list()[model_index]
 
+    global category_index
+    settings["category"] = get_category_list()[category_index]
+
     global clipTextEntry
     settings["clip_text"] = clipTextEntry.get()
 
@@ -311,16 +332,23 @@ def get_settings():
     
     return settings
 
+def search_list_idx(model_list, model_id):
+    for i in range(len(model_list)):
+        if model_id == model_list[i]:
+            return i
+    return 0
+
 def set_settings(settings):
     global target_lines
     target_lines = settings["target_lines"]
 
     global model_index, ListboxModel
-    model_list = get_model_list()
-    for i in range(len(model_list)):
-        if settings["model_type"] == model_list[i]:
-            model_index = i
+    model_index = search_list_idx(get_model_list(), settings["model_type"])
     ListboxModel.select_set(model_index)
+
+    global category_index, ListboxCategory
+    category_index = search_list_idx(get_category_list(), settings["category"])
+    ListboxModel.select_set(category_index)
 
     global clipTextEntry
     clipTextEntry.delete(0, tk.END)
@@ -600,6 +628,19 @@ def ui():
     checkBoxAlways = tkinter.Checkbutton(frame, variable=checkBoxAlwaysBln, text='Always classify for debug')
     checkBoxAlways.grid(row=4, column=3, sticky=tk.NW, rowspan=1)
 
+    textCategory = tk.StringVar(frame)
+    textCategory.set("Category")
+    labelCategory = tk.Label(frame, textvariable=textCategory)
+    labelCategory.grid(row=5, column=3, sticky=tk.NW)
+
+    global ListboxCategory
+    lists = tk.StringVar(value=get_category_list())
+    ListboxCategory = tk.Listbox(frame, listvariable=lists, width=26, height=3, selectmode="single", exportselection=False)
+    ListboxCategory.grid(row=6, column=3, sticky=tk.NW, rowspan=2)
+    ListboxCategory.bind("<<ListboxSelect>>", category_changed)
+
+    ListboxCategory.select_set(category_index)
+
     root.mainloop()
 
 # ======================
@@ -644,6 +685,7 @@ def run():
     args_dict["age_gender"] = settings["age_gender"]
     args_dict["always_classification"] = settings["always_classify_for_debug"]
     args_dict["model_type"] = settings["model_type"]
+    args_dict["category"] = settings["category"]
     if settings["api_secret"] != "" and settings["measurement_id"] != "":
         args_dict["analytics_api_secret"] = settings["api_secret"]
         args_dict["analytics_measurement_id"] = settings["measurement_id"]

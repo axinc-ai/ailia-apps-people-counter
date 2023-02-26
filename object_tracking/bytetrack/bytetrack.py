@@ -84,6 +84,11 @@ parser.add_argument(
     help='model type'
 )
 parser.add_argument(
+    '-c', '--category', default='person',
+    choices=('person', 'car'),
+    help='category type'
+)
+parser.add_argument(
     '--gui',
     action='store_true',
     help='Display preview in GUI.'
@@ -538,7 +543,12 @@ def predict(net, img):
     output = output[0]
 
     # For yolox, retrieve only the person class
-    output = output[..., :6]
+    if args.category == "car":
+        for c in range(80):
+            if c != 2 and c != 5 and c != 7:
+                output[:, 5+c] = 0
+    else:
+        output = output[..., :6] # person
 
     score_thre = args.score_thre
     nms_thre = args.nms_thre
@@ -709,6 +719,10 @@ def main():
     }
     model_type = args.model_type
     weight_path, model_path = dic_model[model_type]
+
+    if args.category != "person" and not ("yolo" in model_type):
+        logger.error("Category "+args.category+" only supports on yolo model.")
+        return
 
     # model files check and download
     check_and_download_models(
