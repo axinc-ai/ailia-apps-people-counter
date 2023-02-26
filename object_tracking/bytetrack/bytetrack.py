@@ -85,7 +85,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '-c', '--category', default='person',
-    choices=('person', 'car'),
+    choices=('person', 'vehicle'),
     help='category type'
 )
 parser.add_argument(
@@ -543,7 +543,7 @@ def predict(net, img):
     output = output[0]
 
     # For yolox, retrieve only the person class
-    if args.category == "car":
+    if args.category == "vehicle":
         for c in range(80):
             if c != 2 and c != 5 and c != 7:
                 output[:, 5+c] = 0

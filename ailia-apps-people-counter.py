@@ -180,7 +180,7 @@ def model_changed(event):
 category_index = 0
 
 def get_category_list():
-    category_list = ["person", "car"]
+    category_list = ["person", "vehicle"]
     return category_list  
 
 def category_changed(event):
@@ -343,12 +343,15 @@ def set_settings(settings):
     target_lines = settings["target_lines"]
 
     global model_index, ListboxModel
+    ListboxModel.select_clear(model_index)
     model_index = search_list_idx(get_model_list(), settings["model_type"])
     ListboxModel.select_set(model_index)
 
-    global category_index, ListboxCategory
-    category_index = search_list_idx(get_category_list(), settings["category"])
-    ListboxModel.select_set(category_index)
+    if "category" in settings:
+        global category_index, ListboxCategory
+        ListboxCategory.select_clear(category_index)
+        category_index = search_list_idx(get_category_list(), settings["category"])
+        ListboxCategory.select_set(category_index)
 
     global clipTextEntry
     clipTextEntry.delete(0, tk.END)
