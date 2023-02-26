@@ -24,6 +24,7 @@ from logging import getLogger  # noqa: E402
 import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
+import tkinter.messagebox
 import os
 
 logger = getLogger(__name__)
@@ -692,6 +693,10 @@ def run():
     if settings["api_secret"] != "" and settings["measurement_id"] != "":
         args_dict["analytics_api_secret"] = settings["api_secret"]
         args_dict["analytics_measurement_id"] = settings["measurement_id"]
+
+    if settings["category"] != "person" and (not "yolo" in settings["model_type"]):
+        tk.messagebox.showerror("Model type error", "Please select yolo model for vehicle detection.")
+        return
 
     crossing_line = ""
     for i in range(len(target_lines)):
