@@ -3,6 +3,7 @@
 
 import sys
 import time
+from signal import SIGINT
 
 import numpy as np
 import cv2
@@ -851,7 +852,7 @@ def stop():
     global proc
 
     if not (proc==None):
-        proc.kill()
+        proc.send_signal(SIGINT)
         proc=None
 
 if __name__ == '__main__':
