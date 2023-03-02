@@ -259,10 +259,10 @@ def set_line(event):
     update_frame_image(frame)
 
 def close_crossing_line():
-    global crossingLineWindows, crossingLineListWindow
-    if crossingLineWindows != None and crossingLineWindows.winfo_exists():
-        crossingLineWindows.destroy()
-        crossingLineWindows = None
+    global crossingLineWindow, crossingLineListWindow
+    if crossingLineWindow != None and crossingLineWindow.winfo_exists():
+        crossingLineWindow.destroy()
+        crossingLineWindow = None
     if crossingLineListWindow != None and crossingLineListWindow.winfo_exists():
         crossingLineListWindow.destroy()
         crossingLineListWindow = None
