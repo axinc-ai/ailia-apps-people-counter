@@ -163,6 +163,24 @@ if args.text_inputs:
 else:
     clip_text = ["man", "woman"]
 
+
+# ======================
+# Terminate
+# ======================
+
+from signal import SIGINT
+import signal
+
+terminate_signal = False
+
+def _signal_handler(signal, handler):
+    global terminate_signal
+    terminate_signal = True
+
+def set_signal_handler():
+    signal.signal(signal.SIGINT,  _signal_handler)
+
+
 # ======================
 # Analytics
 # ======================
@@ -654,6 +672,9 @@ def recognize_from_video(net, net_clip, net_age_gender):
             break
         if frame_shown and cv2.getWindowProperty('frame', cv2.WND_PROP_VISIBLE) == 0:
             break
+        global terminate_signal
+        if terminate_signal:
+            break
 
         # timestamp
         time_stamp = str(datetime.datetime.now())
@@ -736,6 +757,8 @@ def recognize_from_video(net, net_clip, net_age_gender):
 # ======================
 
 def main():
+    set_signal_handler()
+
     dic_model = {
         'mot17_x': (WEIGHT_MOT17_X_PATH, MODEL_MOT17_X_PATH),
         'mot17_s': (WEIGHT_MOT17_S_PATH, MODEL_MOT17_S_PATH),
