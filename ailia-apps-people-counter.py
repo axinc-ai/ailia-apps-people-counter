@@ -20,6 +20,9 @@ from image_utils import normalize_image  # noqa: E402C
 from webcamera_utils import get_capture, get_writer  # noqa: E402
 # logger
 from logging import getLogger  # noqa: E402
+# gui components
+sys.path.append('./gui')
+from editable_listbox import EditableListbox
 
 import tkinter as tk
 from tkinter import ttk
@@ -193,16 +196,36 @@ def category_changed(event):
         category_index = 0
 
 # ======================
+# Video
+# ======================
+
+def get_video_path():
+    global input_list, input_index
+    if "Camera:" in input_list[input_index]:
+        return input_index
+    else:
+        return input_list[input_index]
+
+# ======================
 # Line crossing
 # ======================
 
+# default
 target_lines = [
     {"id":"line0","lines":[(0,0),(100,0),(100,100),(0,100)]}
 ]
 human_count = 0
 
+g_frame = None
+crossingLineWindow = None
+crossingLineListWindow = None
+ListboxCrossingLine = None
+listsCrossingLine = None
+line_idx = 0
+
 def display_line(frame):
     for id in range(len(target_lines)):
+        line_id = target_lines[id]["id"]
         lines = target_lines[id]["lines"]
         if len(lines) >= 4:
             cv2.line(frame, (lines[2][0], lines[2][1]), (lines[3][0], lines[3][1]), (255,0,0), thickness=5)
@@ -218,30 +241,81 @@ def display_line(frame):
             else:
                 color = (255,0,0)
             cv2.circle(frame, center = (lines[i][0], lines[i][1]), radius = 10, color=color, thickness=3)
+            if i == 0:
+                cv2.putText(frame, line_id, (lines[i][0] + 10,lines[i][1]),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
 
-g_frame = None
-crossingLineWindow = None
+def set_line(event):
+    global target_lines
+    x = event.x
+    y = event.y
+    lines = target_lines[0]["lines"]
+    if len(lines)>=4:
+        lines.clear()
+    else:
+        lines.append((x,y))
+    frame = g_frame.copy()
+    display_line(frame)
+    update_frame_image(frame)
 
 def close_crossing_line():
-    global crossingLineWindow
-    if crossingLineWindow != None and crossingLineWindow.winfo_exists():
-        crossingLineWindow.destroy()
-        crossingLineWindow = None
+    global crossingLineWindows, crossingLineListWindow
+    if crossingLineWindows != None and crossingLineWindows.winfo_exists():
+        crossingLineWindows.destroy()
+        crossingLineWindows = None
+    if crossingLineListWindow != None and crossingLineListWindow.winfo_exists():
+        crossingLineListWindow.destroy()
+        crossingLineListWindow = None
 
-def get_video_path():
-    global input_list, input_index
-    if "Camera:" in input_list[input_index]:
-        return input_index
+def add_line():
+    global target_lines, line_idx, listsCrossingLine, ListboxCrossingLine
+    target_lines.append({"id":"line"+str(len(target_lines)), "lines":[]})
+    ListboxCrossingLine.select_clear(line_idx)
+    line_idx = len(target_lines) - 1
+    listsCrossingLine.set(get_line_list())
+    ListboxCrossingLine.select_set(line_idx)
+    update_crossing_line()
+
+def remove_line():
+    global target_lines, line_idx, listsCrossingLine, ListboxCrossingLine
+    if len(target_lines) == 1:
+        return
+    ListboxCrossingLine.select_clear(line_idx)
+    target_lines.remove(target_lines[line_idx])
+    line_idx = 0
+    listsCrossingLine.set(get_line_list())
+    ListboxCrossingLine.select_set(line_idx)
+    update_crossing_line()
+
+def line_select_changed(event):
+    global line_idx, ListboxCrossingLine
+    selection = event.widget.curselection()
+    if selection:
+        line_idx = selection[0]
     else:
-        return input_list[input_index]
+        line_idx = 0
+    ListboxCrossingLine.select_set(line_idx)
+    update_crossing_line()
+
+def get_line_list():
+    global target_lines
+    id_list = []
+    for i in range(len(target_lines)):
+        id_list.append(target_lines[i]["id"])
+    return id_list
+
+def notify_update_name(new_data):
+    global target_lines, line_idx
+    target_lines[line_idx]["id"] = new_data
+    update_crossing_line()
 
 def set_crossing_line():
     global g_frame, g_frame_shown
     global textCrossingLine
-    global crossingLineWindow
+    global crossingLineWindow, crossingLineListWindow
 
-    if crossingLineWindow != None and crossingLineWindow.winfo_exists():
-        return
+    if (crossingLineWindow != None and crossingLineWindow.winfo_exists()) or (crossingLineListWindow != None and crossingLineListWindow.winfo_exists()):
+        close_crossing_line()
 
     capture = get_capture(get_video_path())
     assert capture.isOpened(), 'Cannot capture source'
@@ -249,13 +323,44 @@ def set_crossing_line():
     g_frame = frame
 
     crossingLineWindow = tk.Toplevel()
-    crossingLineWindow.title("Set crossing line")
+    crossingLineWindow.title("Set line")
     crossingLineWindow.geometry(str(g_frame.shape[1])+"x"+str(g_frame.shape[0]))
-    tk.Label(crossingLineWindow, text ="Please set crossing line by click").pack()
+    tk.Label(crossingLineWindow, text ="Please set line by click").pack()
     crossingLineWindow.canvas = tk.Canvas(crossingLineWindow)
     crossingLineWindow.canvas.bind('<Button-1>', set_line)
     crossingLineWindow.canvas.pack(expand = True, fill = tk.BOTH)
 
+    crossingLineListWindow = tk.Toplevel()
+    crossingLineListWindow.title("Select target line")
+    crossingLineListWindow.geometry("400x400")
+    textCrossingLineListHeader = tk.StringVar(crossingLineListWindow)
+    textCrossingLineListHeader.set("Line list")
+    labelAreaListHeader = tk.Label(crossingLineListWindow, textvariable=textCrossingLineListHeader)
+    labelAreaListHeader.grid(row=0, column=0, sticky=tk.NW)
+    line_list = get_line_list()
+    global listsCrossingLine
+    listsCrossingLine = tk.StringVar(value=line_list)
+    global ListboxCrossingLine
+    ListboxCrossingLine = EditableListbox(crossingLineListWindow, listvariable=listsCrossingLine, width=20, height=16, selectmode="single", exportselection=False)
+    ListboxCrossingLine.bind("<<ListboxSelect>>", line_select_changed)
+    ListboxCrossingLine.select_set(line_idx)
+    ListboxCrossingLine.grid(row=1, column=0, sticky=tk.NW, rowspan=1, columnspan=20)
+    ListboxCrossingLine.bind_notify_update(notify_update_name)
+
+    textCrossingLineAdd = tk.StringVar(crossingLineListWindow)
+    textCrossingLineAdd.set("Add line")
+    buttonCrossingLineAdd = tk.Button(crossingLineListWindow, textvariable=textCrossingLineAdd, command=add_line, width=14)
+    buttonCrossingLineAdd.grid(row=22, column=0, sticky=tk.NW)
+
+    textCrossingLineRemove = tk.StringVar(crossingLineListWindow)
+    textCrossingLineRemove.set("Remove line")
+    buttonCrossingLineRemove = tk.Button(crossingLineListWindow, textvariable=textCrossingLineRemove, command=remove_line, width=14)
+    buttonCrossingLineRemove.grid(row=23, column=0, sticky=tk.NW)
+
+    update_crossing_line()
+
+def update_crossing_line():
+    global g_frame
     frame = g_frame.copy()
     display_line(frame)
     update_frame_image(frame)
@@ -272,14 +377,14 @@ def update_frame_image(frame):
             )
 
 def set_line(event):
-    global target_lines
+    global target_lines, line_idx
+    target_line = target_lines[line_idx]["lines"]
     x = event.x
     y = event.y
-    lines = target_lines[0]["lines"]
-    if len(lines)>=4:
-        lines.clear()
+    if len(target_line)>=4:
+        target_line.clear()
     else:
-        lines.append((x,y))
+        target_line.append((x,y))
     frame = g_frame.copy()
     display_line(frame)
     update_frame_image(frame)
