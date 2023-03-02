@@ -599,10 +599,10 @@ def recognize_from_video(net, net_clip, net_age_gender):
     else:
         texts= args.crossing_line.split(" ")
         p = 0
+        target_lines = []
         while p < len(texts):
             line_id = texts[p]
             p = p + 1
-            target_lines = []
             lines = []
             lines.append( (int(texts[p+0]),int(texts[p+1])) )
             lines.append( (int(texts[p+2]),int(texts[p+3])) )
