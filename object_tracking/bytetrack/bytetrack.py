@@ -85,7 +85,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '-c', '--category', default='person',
-    choices=('person', 'vehicle'),
+    choices=('person', 'vehicle', 'bear'),
     help='category type'
 )
 parser.add_argument(
@@ -133,6 +133,11 @@ parser.add_argument(
     '--analytics_measurement_id', type=str, default=None,
     help='Send analytics data to google analytics.'
 )
+parser.add_argument(
+    '--show_fps',
+    action='store_true',
+    help='Show fps.'
+)
 
 # tracking args
 parser.add_argument("--track_thresh", type=float, default=0.5, help="tracking confidence threshold")
@@ -140,6 +145,17 @@ parser.add_argument("--track_buffer", type=int, default=30, help="the frames for
 parser.add_argument("--match_thresh", type=float, default=0.8, help="matching threshold for tracking")
 parser.add_argument('--min-box-area', type=float, default=10, help='filter out tiny boxes')
 args = update_parser(parser)
+
+# ======================
+# UI
+# ======================
+
+UI_TEXT_COLOR = (0,0,255)
+UI_TEXT_THICKNESS = 3
+UI_TEXT_HEIGHT = 40
+UI_TEXT_SIZE = 1.0
+UI_TEXT_FPS_WIDTH = 160
+
 
 # ======================
 # Dependency
@@ -427,11 +443,29 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
         t = (10 - t) * 4
         cv2.circle(frame, center = (count["x"],count["y"]), radius = t, color=(255,255,255), thickness=2)
 
-    y = 40 * (1 + line_no)
+    y = UI_TEXT_HEIGHT * (1 + line_no)
     cv2.putText(frame, target_lines[line_no]["id"] + " Count(In) : " + str(tracking_object[line_no]["human_count_in"])+" Count(Out) : " + str(tracking_object[line_no]["human_count_out"])+" Time(sec) : "+str(fps_time)+ " / "+str(total_time), (0, y),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), thickness=3)
+                cv2.FONT_HERSHEY_SIMPLEX, UI_TEXT_SIZE, UI_TEXT_COLOR, thickness=UI_TEXT_THICKNESS)
     
     return count_exists_in_frame
+
+
+# ======================
+# Show fps
+# ======================
+
+def display_fps(res_img, fps_counter, fps_start, fps_end):
+    fps_counter["cnt"] = fps_counter["cnt"] + 1
+    fps_counter["time"] = fps_counter["time"] + (fps_end - fps_start)
+    if fps_counter["time"] >= 1000:
+        fps_counter["cur"] = fps_counter["cnt"] * 1000 // fps_counter["time"]
+        fps_counter["time"] = 0
+        fps_counter["cnt"] = 0
+    fps_str = "-"
+    if fps_counter["cur"] > 0:
+        fps_str = str(fps_counter["cur"])
+    cv2.putText(res_img, "FPS : " + fps_str, (res_img.shape[1] - UI_TEXT_FPS_WIDTH, UI_TEXT_HEIGHT),
+                cv2.FONT_HERSHEY_SIMPLEX, UI_TEXT_SIZE, UI_TEXT_COLOR, thickness=UI_TEXT_THICKNESS)
 
 
 # ======================
@@ -571,6 +605,10 @@ def predict(net, img):
         for c in range(80):
             if c != 2 and c != 5 and c != 7:
                 output[..., 5 + c] = 0
+    elif args.category == "bear":
+        for c in range(80):
+            if c != 22:
+                output[..., 5 + c] = 0
     else:
         output = output[..., :6] # person
 
@@ -666,6 +704,8 @@ def recognize_from_video(net, net_clip, net_age_gender):
     age_gender_id = {}
     age_gender_list = []
 
+    fps_counter = {"cnt": 0, "time": 0, "cur": 0}
+
     while True:
         ret, frame = capture.read()
         if (cv2.waitKey(1) & 0xFF == ord('q')) or not ret:
@@ -675,6 +715,9 @@ def recognize_from_video(net, net_clip, net_age_gender):
         global terminate_signal
         if terminate_signal:
             break
+
+        # fps
+        fps_start = int(round(time.time() * 1000))
 
         # timestamp
         time_stamp = str(datetime.datetime.now())
@@ -707,6 +750,11 @@ def recognize_from_video(net, net_clip, net_age_gender):
             if cur_count_exists_in_frame:
                 count_exists_in_frame = True
         res_img = frame
+
+        # fps
+        fps_end = int(round(time.time() * 1000))
+        if args.show_fps:
+            display_fps(res_img, fps_counter, fps_start, fps_end)
 
         # show
         if args.gui or args.video:
