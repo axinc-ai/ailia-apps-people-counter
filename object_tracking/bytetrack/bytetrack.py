@@ -720,7 +720,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
         fps_start = int(round(time.time() * 1000))
 
         # timestamp
-        time_stamp = str(datetime.datetime.now())
+        time_stamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
         # inference
         output = predict(net, frame)
