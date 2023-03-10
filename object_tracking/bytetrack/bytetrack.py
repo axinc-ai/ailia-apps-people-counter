@@ -607,7 +607,7 @@ def predict(net, img):
                 output[..., 5 + c] = 0
     elif args.category == "bear":
         for c in range(80):
-            if c != 22:
+            if c != 21:
                 output[..., 5 + c] = 0
     else:
         output = output[..., :6] # person

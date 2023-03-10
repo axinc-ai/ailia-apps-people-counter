@@ -185,7 +185,7 @@ def model_changed(event):
 category_index = 0
 
 def get_category_list():
-    category_list = ["person", "vehicle"]
+    category_list = ["person", "vehicle", "bear"]
     return category_list  
 
 def category_changed(event):
@@ -819,7 +819,7 @@ def run():
         args_dict["analytics_measurement_id"] = settings["measurement_id"]
 
     if settings["category"] != "person" and (not "yolo" in settings["model_type"]):
-        tk.messagebox.showerror("Model type error", "Please select yolo model for vehicle detection.")
+        tk.messagebox.showerror("Model type error", "Please select yolo model for vehicle or bear detection.")
         return
 
     crossing_line = ""
