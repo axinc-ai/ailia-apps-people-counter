@@ -185,7 +185,7 @@ def model_changed(event):
 category_index = 0
 
 def get_category_list():
-    category_list = ["person", "vehicle"]
+    category_list = ["person", "vehicle", "bear"]
     return category_list  
 
 def category_changed(event):
@@ -429,6 +429,12 @@ def get_settings():
     else:
         settings["always_classify_for_debug"] = False
 
+    global checkBoxShowFpsBln
+    if checkBoxShowFpsBln.get():
+        settings["show_fps"] = True
+    else:
+        settings["show_fps"] = False
+
     global api_secret, measurement_id
     settings["api_secret"] = api_secret
     settings["measurement_id"] = measurement_id
@@ -472,6 +478,10 @@ def set_settings(settings):
 
     global checkBoxAlwaysBln
     checkBoxAlwaysBln.set(settings["always_classify_for_debug"])
+
+    if "show_fps" in settings:
+        global checkBoxShowFpsBln
+        checkBoxShowFpsBln.set(settings["show_fps"])
 
     global api_secret
     if "api_secret" in settings:
@@ -591,6 +601,7 @@ checkBoxClipBln = None
 checkBoxAgeGenderBln = None
 clipTextEntry = None
 checkBoxAlwaysBln = None
+checkBoxShowFpsBln = None
 ListboxModel = None
 
 def ui():
@@ -738,15 +749,21 @@ def ui():
     checkBoxAlways = tkinter.Checkbutton(frame, variable=checkBoxAlwaysBln, text='Always classify for debug')
     checkBoxAlways.grid(row=4, column=3, sticky=tk.NW, rowspan=1)
 
+    global checkBoxShowFpsBln
+    checkBoxShowFpsBln = tkinter.BooleanVar()
+    checkBoxShowFpsBln.set(False)
+    checkBoxShowFps = tkinter.Checkbutton(frame, variable=checkBoxShowFpsBln, text='Show fps')
+    checkBoxShowFps.grid(row=5, column=3, sticky=tk.NW, rowspan=1)
+
     textCategory = tk.StringVar(frame)
     textCategory.set("Category")
     labelCategory = tk.Label(frame, textvariable=textCategory)
-    labelCategory.grid(row=5, column=3, sticky=tk.NW)
+    labelCategory.grid(row=6, column=3, sticky=tk.NW)
 
     global ListboxCategory
     lists = tk.StringVar(value=get_category_list())
     ListboxCategory = tk.Listbox(frame, listvariable=lists, width=26, height=3, selectmode="single", exportselection=False)
-    ListboxCategory.grid(row=6, column=3, sticky=tk.NW, rowspan=2)
+    ListboxCategory.grid(row=7, column=3, sticky=tk.NW, rowspan=2)
     ListboxCategory.bind("<<ListboxSelect>>", category_changed)
 
     ListboxCategory.select_set(category_index)
@@ -794,6 +811,7 @@ def run():
     args_dict["clip"] = settings["clip"]
     args_dict["age_gender"] = settings["age_gender"]
     args_dict["always_classification"] = settings["always_classify_for_debug"]
+    args_dict["show_fps"] = settings["show_fps"]
     args_dict["model_type"] = settings["model_type"]
     args_dict["category"] = settings["category"]
     if settings["api_secret"] != "" and settings["measurement_id"] != "":
@@ -801,7 +819,7 @@ def run():
         args_dict["analytics_measurement_id"] = settings["measurement_id"]
 
     if settings["category"] != "person" and (not "yolo" in settings["model_type"]):
-        tk.messagebox.showerror("Model type error", "Please select yolo model for vehicle detection.")
+        tk.messagebox.showerror("Model type error", "Please select yolo model for vehicle or bear detection.")
         return
 
     crossing_line = ""
