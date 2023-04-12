@@ -294,6 +294,56 @@ def display_person(frame, img, person_idx, label):
         cv2.putText(frame, label, (x, frame.shape[0] - s),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), thickness=1)
 
+def display_track(frame, online_targets, tracking_object, clip_id, clip_conf, age_gender_id):
+    tracking_position = tracking_object[0]["tracking_position"]
+
+    for t in online_targets:
+        tlwh = t.tlwh
+        tid = t.track_id
+        x = int(tlwh[0] + tlwh[2]/2)
+        y = int(tlwh[1] + tlwh[3]/2)
+        y_top = int(tlwh[1])
+
+        # get history
+        before = None
+        color = vis_colors[int(tid) % num_colors]
+        original_color = color
+        for data in tracking_position[tid]:
+            if before == None:
+                before = data
+                continue
+            for line_no in range(len(tracking_object)):
+                tracking_state = tracking_object[line_no]["tracking_state"]
+                if tracking_state[tid] == TRACKING_STATE_DONE:
+                    color = (0, 0, 0)
+            cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color, thickness=3)           
+            before = data
+
+        # display id
+        text = str(tid)
+        cv2.putText(frame, text, (x, y_top),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
+        y_top = y_top + 20
+        if tid in clip_id:
+            text = clip_text[clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
+            cv2.putText(frame, text, (x, y_top),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
+            y_top = y_top + 20
+        if tid in age_gender_id:
+            text = age_gender_id[tid]
+            cv2.putText(frame, text, (x, y_top),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
+
+        # display detected person
+        thickness = 0
+        for line_no in range(len(tracking_object)):
+            tracking_state = tracking_object[line_no]["tracking_state"]
+            if tracking_state[tid] != TRACKING_STATE_NONE and tracking_state[tid] != TRACKING_STATE_DONE:
+                thickness = 3
+        if thickness != 0:
+            cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
+
+
 TRACKING_STATE_NONE = 0
 TRACKING_STATE_IN = 1
 TRACKING_STATE_OUT = 2
@@ -339,15 +389,11 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
         countup_in = False
         countup_out = False
         color = vis_colors[int(tid) % num_colors]
-        original_color = color
         for data in tracking_position[tid]:
             if before == None:
                 before = data
                 line_before = data
                 continue
-            if tracking_state[tid] == TRACKING_STATE_DONE:
-                color = (0, 0, 0)
-            cv2.line(frame, (before["x"],before["y"]), (data["x"], data["y"]), color, thickness=3)
             
             # detect line crossing
             lines = target_lines[line_no]["lines"]
@@ -372,28 +418,9 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
                         tracking_state[tid] = TRACKING_STATE_OUT
             before = data
 
-        # display id
-        text = str(tid)
-        cv2.putText(frame, text, (x, y_top),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
-        y_top = y_top + 20
-        if tid in clip_id:
-            text = clip_text[clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
-            cv2.putText(frame, text, (x, y_top),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
-            y_top = y_top + 20
-        if tid in age_gender_id:
-            text = age_gender_id[tid]#clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
-            cv2.putText(frame, text, (x, y_top),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
-
         # display detected person
-        thickness = 0
-        if tracking_state[tid] != TRACKING_STATE_NONE and tracking_state[tid] != TRACKING_STATE_DONE:
-            thickness = 3
         if countup_in or countup_out:
             count_exists_in_frame = True
-            thickness = 10
             countup_state.append({"x":x,"y":y,"frame_no":frame_no})
             if args.analytics_api_secret and args.analytics_measurement_id:
                 if countup_in:
@@ -401,9 +428,12 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
                 else:
                     event_id = "person_out"
                 send_analytics(event_id)
-        if thickness != 0:
+
+        # effect        
+        if countup_in or countup_out:
+            thickness = 10
             cv2.rectangle(frame, (int(tlwh[0]), int(tlwh[1])), (int(tlwh[0]+tlwh[2]), int(tlwh[1]+tlwh[3])), color=color, thickness=thickness)
-        
+
         # clip classification
         img = None
         if (args.clip or args.age_gender) and (countup_in or countup_out or args.always_classification):
@@ -749,6 +779,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
                 net_age_gender, age_gender_id, age_gender_list, line_no)
             if cur_count_exists_in_frame:
                 count_exists_in_frame = True
+        display_track(frame, online_targets, tracking_object, clip_id, clip_conf, age_gender_id)
         res_img = frame
 
         # fps
