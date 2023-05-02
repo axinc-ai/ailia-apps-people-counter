@@ -73,6 +73,13 @@ You can send people count information to Google Analytics GA4 using Measurement 
 
 [Connect to Google Analytics](ANALYTICS.md)
 
+### IP camera connection
+
+You can set IP camera address from camera settings of menu bar.
+Please try to set these kind of ip camera address.
+
+`rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4`
+
 ## Architecture
 
 ```mermaid
