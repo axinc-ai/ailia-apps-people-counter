@@ -609,14 +609,14 @@ def menu_cameras_open():
         return
 
     camerasWindow = tk.Toplevel()
-    camerasWindow.title("Google Analytics Settings")
+    camerasWindow.title("IP Camera Settings")
     camerasWindow.geometry("300x300")
 
     frame = ttk.Frame(camerasWindow)
     frame.pack(padx=10,pady=10)
 
     textOptions = tk.StringVar(frame)
-    textOptions.set("Camera addr (rtsp://*.sdp)")
+    textOptions.set("IP camera address (rtsp://*)")
     labelOptions = tk.Label(frame, textvariable=textOptions)
     labelOptions.grid(row=0, column=0, sticky=tk.NW)
 
