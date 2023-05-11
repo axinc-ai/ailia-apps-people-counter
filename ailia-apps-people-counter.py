@@ -51,8 +51,10 @@ input_index = 0
 listsInput = None
 ListboxInput = None
 input_list = []
+camera_list = []
+ip_camera_list = []
 
-def get_input_list():
+def get_camera_list():
     if args.debug:
         return ["Camera:0"]
 
@@ -73,30 +75,35 @@ def get_input_list():
     return inputs
 
 def input_changed(event):
-    global input_index, input_list, textInputVideoDetail
+    global input_index, input_list
     selection = event.widget.curselection()
     if selection:
         input_index = selection[0]
     else:
         input_index = 0   
+    update_input_list()
+
+def update_input_list():
+    global input_index, input_list, camera_list, ip_camera_list
+    global textInputVideoDetail
+    input_list = camera_list + ip_camera_list
+    listsInput.set(input_list)
     if "Camera:" in input_list[input_index]:
         textInputVideoDetail.set(input_list[input_index])
     else:
         textInputVideoDetail.set(os.path.basename(input_list[input_index]))
-        
     #print("input",input_index)
 
 def input_video_dialog():
-    global textInputVideoDetail, listsInput, ListboxInput, input_index, input_list
+    global textInputVideoDetail, listsInput, ListboxInput, input_index, input_list, camera_list
     fTyp = [("All Files", "*.*"), ("Video files","*.mp4")]
     iDir = os.path.abspath(os.path.dirname(__file__))
     file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
     if len(file_name) != 0:
-        textInputVideoDetail.set(os.path.basename(file_name))
-        input_list.append(file_name)
-        listsInput.set(input_list)
+        camera_list.append(file_name)
+        update_input_list()
         ListboxInput.select_clear(input_index)
-        input_index = len(input_list)-1
+        input_index = len(camera_list)-1
         ListboxInput.select_set(input_index)
 
 # ======================
@@ -110,6 +117,7 @@ def apply_path_to_ui():
     textOutputCsvDetail.set(os.path.basename(args.csvpath))
     global textOutputImageDetail
     textOutputImageDetail.set(os.path.basename(args.imgpath))
+    update_input_list()
 
 
 def output_video_dialog():
@@ -439,6 +447,10 @@ def get_settings():
     settings["api_secret"] = api_secret
     settings["measurement_id"] = measurement_id
 
+    global ip_camera
+    if ip_camera != "":
+        settings["ip_camera"] = [ip_camera]
+
     settings["savepath"] = args.savepath
     settings["csvpath"] = args.csvpath
     settings["imgpath"] = args.imgpath
@@ -488,15 +500,26 @@ def set_settings(settings):
         api_secret = settings["api_secret"]
         global apiSecretEntry
         if apiSecretEntry != None:
-            apiSecretEntry.set(api_secret)
+            apiSecretEntry.delete(0,"end")
+            apiSecretEntry.insert(0, api_secret)
 
     global measurement_id
     if "measurement_id" in settings:
         measurement_id = settings["measurement_id"]
         global measurementIdEntry
         if measurementIdEntry != None:
-            measurementIdEntry.set(measurement_id)
-    
+            measurementIdEntry.delete(0,"end")
+            measurementIdEntry.insert(0, measurement_id)
+
+    global ip_camera
+    if "ip_camera" in settings:
+        ip_camera = settings["ip_camera"][0]
+        global cameraEntry, ip_camera_list
+        if cameraEntry != None:
+            cameraEntry.delete(0,"end")
+            cameraEntry.insert(0, ip_camera)
+        ip_camera_list = [ip_camera]
+
     if "savepath" in settings:
         args.savepath = settings["savepath"]
     if "csvpath" in settings:
@@ -575,6 +598,51 @@ def menu_analytics_set():
     analyticsWindow.destroy()
     analyticsWindow = None
 
+camerasWindow = None
+cameraEntry = None
+ip_camera = ""
+
+def menu_cameras_open():
+    global camerasWindow
+
+    if camerasWindow != None and camerasWindow.winfo_exists():
+        return
+
+    camerasWindow = tk.Toplevel()
+    camerasWindow.title("IP Camera Settings")
+    camerasWindow.geometry("300x300")
+
+    frame = ttk.Frame(camerasWindow)
+    frame.pack(padx=10,pady=10)
+
+    textOptions = tk.StringVar(frame)
+    textOptions.set("IP camera address (rtsp://*)")
+    labelOptions = tk.Label(frame, textvariable=textOptions)
+    labelOptions.grid(row=0, column=0, sticky=tk.NW)
+
+    global cameraEntry, ip_camera
+    cameraEntry = tkinter.Entry(frame, width=20)
+    cameraEntry.insert(tkinter.END, ip_camera)
+    cameraEntry.grid(row=1, column=0, sticky=tk.NW, rowspan=1)
+
+    setCamerasSettingsText = tk.StringVar(frame)
+    setCamerasSettingsText.set("OK")
+    buttonSetCamerasSettings = tk.Button(frame, textvariable=setCamerasSettingsText, command=menu_cameras_set, width=14)
+    buttonSetCamerasSettings.grid(row=4, column=0, sticky=tk.NW)
+
+def menu_cameras_set():
+    global cameraEntry, ip_camera_list, ip_camera
+    ip_camera = cameraEntry.get()
+    ip_camera_list = []
+    if ip_camera != "":
+        ip_camera_list.append(ip_camera)
+    
+    update_input_list()
+    
+    global camerasWindow
+    camerasWindow.destroy()
+    camerasWindow = None
+
 def menu(root):
     menubar = tk.Menu(root)
 
@@ -586,9 +654,13 @@ def menu(root):
 
     menu_analytics = tk.Menu(menubar, tearoff = False)
     menu_analytics.add_command(label = "Analytics settings",  command = menu_analytics_open,  accelerator="Ctrl+A")
+    
+    menu_cameras = tk.Menu(menubar, tearoff = False)
+    menu_cameras.add_command(label = "Camera settings",  command = menu_cameras_open,  accelerator="Ctrl+C")
 
     menubar.add_cascade(label="File", menu=menu_file)
     menubar.add_cascade(label="Analytics", menu=menu_analytics)
+    menubar.add_cascade(label="Cameras", menu=menu_cameras)
 
     root.config(menu=menubar)
 
@@ -615,8 +687,9 @@ def ui():
     menu(root)
 
     # 環境情報取得
-    global input_list
-    input_list = get_input_list()
+    global input_list, camera_list
+    camera_list = get_camera_list()
+    input_list = camera_list + ip_camera_list
     model_list = get_model_list()
     env_list = get_env_list()
 
