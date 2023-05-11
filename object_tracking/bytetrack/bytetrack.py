@@ -663,7 +663,9 @@ def recognize_from_video(net, net_clip, net_age_gender):
     frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = capture.get(cv2.CAP_PROP_FPS)
     if args.savepath != None:
-        writer = get_writer(args.savepath, f_h, f_w)
+        if fps == 0 or fps == -1:
+            fps = 20
+        writer = get_writer(args.savepath, f_h, f_w, fps = fps)
     else:
         writer = None
 
