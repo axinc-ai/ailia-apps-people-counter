@@ -126,6 +126,11 @@ parser.add_argument(
     help='Apply person attributes detection'
 )
 parser.add_argument(
+    '--footing',
+    action='store_true',
+    help='Track footing'
+)
+parser.add_argument(
     '--always_classification',
     action='store_true',
     help='Always classification for debug.'
@@ -359,7 +364,6 @@ def display_track(frame, online_targets, tracking_object, clip_object, person_at
         tlwh = t.tlwh
         tid = t.track_id
         x = int(tlwh[0] + tlwh[2]/2)
-        y = int(tlwh[1] + tlwh[3]/2)
         y_top = int(tlwh[1])
 
         # get history
@@ -438,7 +442,8 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
         tid = t.track_id
         x = int(tlwh[0] + tlwh[2]/2)
         y = int(tlwh[1] + tlwh[3]/2)
-        y_top = int(tlwh[1])
+        if args.footing:
+            y = int(tlwh[1] + tlwh[3] * 0.95)
         if not (tid in tracking_position):
             tracking_position[tid] = []
             tracking_state[tid] = TRACKING_STATE_NONE
