@@ -264,6 +264,3 @@ def create_age_gender_retail(env_id):
 
     return {"net": net, "detector": detector, "hp_estimator": hp_estimator}
 
-
-if __name__ == '__main__':
-    main()

@@ -121,6 +121,11 @@ parser.add_argument(
     help='Apply age gender detection.'
 )
 parser.add_argument(
+    '--person_attributes',
+    action='store_true',
+    help='Apply person attributes detection'
+)
+parser.add_argument(
     '--always_classification',
     action='store_true',
     help='Always classification for debug.'
@@ -163,11 +168,14 @@ UI_TEXT_FPS_WIDTH = 160
 
 sys.path.append('../clip')
 sys.path.append('../age-gender-retail')
+sys.path.append('../person-attributes-recognition-crossroad')
 
 if args.clip:
     from clip import create_clip, recognize_clip
 if args.age_gender:
     from age_gender_retail import create_age_gender_retail, recognize_age_gender_retail
+if args.person_attributes:
+    from person_attributes_recognition_crossroad import recognize_person_attributes_recognition_crossroad, create_person_attributes_recognition_crossroad
 
 
 # ======================
@@ -208,6 +216,25 @@ def update_clip_object(clip_object, clip_text):
 
 clip_text = get_clip_text(args.text_inputs)
 logger.info("CLIP Labels : ", clip_text)
+
+
+# ======================
+# Person attributes
+# ======================
+
+person_attributes_labels = ['is_male','has_bag','has_backpack','has_hat','has_longsleeves','has_longpants','has_longhair']
+
+def initialize_person_attributes_object():
+    person_attributes_object = {"count":[], "total_count":[], "label":{}}
+    for attribute in person_attributes_labels:
+        person_attributes_object["count"].append(0)
+        person_attributes_object["total_count"].append(0)
+    return person_attributes_object
+
+def update_person_attributes_object(person_attributes_object):
+    for i in range(0,len(person_attributes_labels)):
+        person_attributes_object["total_count"][i] = person_attributes_object["count"][i]
+
 
 # ======================
 # Terminate
@@ -323,7 +350,7 @@ def display_person(frame, img, person_idx, label):
         cv2.putText(frame, label, (x, frame.shape[0] - s),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), thickness=1)
 
-def display_track(frame, online_targets, tracking_object, clip_object, age_gender_id):
+def display_track(frame, online_targets, tracking_object, clip_object, person_attributes_object, age_gender_id):
     clip_id = clip_object["clip_id"]
     clip_conf = clip_object["clip_conf"]
     tracking_position = tracking_object[0]["tracking_position"]
@@ -352,15 +379,21 @@ def display_track(frame, online_targets, tracking_object, clip_object, age_gende
 
         # display id
         text = str(tid)
+        line_height = 20
         cv2.putText(frame, text, (x, y_top),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
-        y_top = y_top + 20
+        y_top = y_top + line_height
         for c in range(0,len(clip_id)):
             if tid in clip_id[c]:
                 text = clip_text[c][clip_id[c][tid]] + " " + str(int(clip_conf[c][tid]*100)/100)
                 cv2.putText(frame, text, (x, y_top),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
-                y_top = y_top + 20
+                y_top = y_top + line_height
+        if tid in person_attributes_object["label"]:
+            text = person_attributes_object["label"][tid]
+            cv2.putText(frame, text, (x, y_top),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
+            y_top = y_top + line_height
         if tid in age_gender_id:
             text = age_gender_id[tid]
             cv2.putText(frame, text, (x, y_top),
@@ -382,7 +415,7 @@ TRACKING_STATE_OUT = 2
 TRACKING_STATE_DONE = 3
 
 def line_crossing(frame, online_targets, tracking_object, countup_state, frame_no, fps_time, total_time,
-    net_clip, clip_object,
+    net_clip, clip_object, net_person_attributes, person_attributes_object,
     net_age_gender, age_gender_id, age_gender_list, line_no):
 
     clip_id = clip_object["clip_id"]
@@ -472,7 +505,7 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
 
         # clip classification
         img = None
-        if (args.clip or args.age_gender) and (countup_in or countup_out or args.always_classification):
+        if (args.clip or args.age_gender or args.person_attributes) and (countup_in or countup_out or args.always_classification):
             img = original_frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
             if img.shape[0] > 0 and img.shape[1] > 0:
                 if args.clip:
@@ -487,6 +520,7 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
                             clip_count[category_idx][i] = clip_count[category_idx][i] + 1
                         label = label + clip_text[category_idx][i] + " "
                         category_idx = category_idx + 1
+
                 if args.age_gender:
                     age, gender, face = recognize_age_gender_retail(net_age_gender, img)
                     if age == None:
@@ -497,6 +531,17 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
                     age_gender_id[tid] = label
                     if countup_in or countup_out:
                         age_gender_list.append(age_gender_id[tid])
+
+                if args.person_attributes:
+                    labels, confs = recognize_person_attributes_recognition_crossroad(net_person_attributes, original_frame, int(tlwh[0]), int(tlwh[1]), int(tlwh[2]), int(tlwh[3]))
+                    label = ""
+                    for i in range(0,len(labels)):
+                        if confs[i] > 0.5:
+                            if countup_in or countup_out:
+                                person_attributes_object["count"][i] = person_attributes_object["count"][i] + 1
+                        label = label + " " + labels[i] + " " + str(int(confs[i]*100)/100)
+                    person_attributes_object["label"][tid] = label
+
                 if args.always_classification:
                     display_person(frame, img, person_idx, label)
                     person_idx = person_idx + 1
@@ -555,6 +600,12 @@ def open_csv(tracking_object):
             for i in range(0, len(clip_text[c])):
                 csv.write(" , ")
                 csv.write(clip_text[c][i])
+    
+    if args.person_attributes:
+        for attribute in person_attributes_labels:
+            csv.write(" , ")
+            csv.write(attribute)
+
     if args.age_gender:
         csv.write(" , ")
         csv.write("age_gender(list)")
@@ -562,7 +613,7 @@ def open_csv(tracking_object):
     return csv
 
 
-def write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, age_gender_list):
+def write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, person_attributes_object, age_gender_list):
     clip_count = clip_object["clip_count"]
     total_clip_count = clip_object["total_clip_count"]
 
@@ -577,6 +628,12 @@ def write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, age_gende
             for i in range(0, len(clip_text[c])):
                 csv.write(" , ")
                 csv.write(str(clip_count[c][i] - total_clip_count[c][i]))
+
+    if args.person_attributes:
+        for i in range(0, len(person_attributes_labels)):
+            csv.write(" , ")
+            csv.write(str(person_attributes_object["count"][i] - person_attributes_object["total_count"][i]))
+        
     if args.age_gender:
         for age_gender in age_gender_list:
             csv.write(" , ")
@@ -694,7 +751,7 @@ def predict(net, img):
     return dets
 
 
-def recognize_from_video(net, net_clip, net_age_gender):
+def recognize_from_video(net, net_clip, net_age_gender, net_person_attributes):
     min_box_area = args.min_box_area
     mot20 = args.model_type == 'mot20'
 
@@ -770,6 +827,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
     before_fps_time = -1
 
     clip_object = initialize_clip_object(clip_text)
+    person_attributes_object = initialize_person_attributes_object()
 
     age_gender_id = {}
     age_gender_list = []
@@ -816,10 +874,11 @@ def recognize_from_video(net, net_clip, net_age_gender):
         for line_no in range(len(target_lines)):
             cur_count_exists_in_frame = line_crossing(frame, online_targets, tracking_object, countup_state, frame_no, fps_time, total_time,
                 net_clip, clip_object,
+                net_person_attributes, person_attributes_object,
                 net_age_gender, age_gender_id, age_gender_list, line_no)
             if cur_count_exists_in_frame:
                 count_exists_in_frame = True
-        display_track(frame, online_targets, tracking_object, clip_object, age_gender_id)
+        display_track(frame, online_targets, tracking_object, clip_object, person_attributes_object, age_gender_id)
         res_img = frame
 
         # fps
@@ -839,7 +898,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
             writer.write(res_img.astype(np.uint8))
         if csv is not None:
             if before_fps_time != fps_time:
-                write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, age_gender_list)
+                write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, person_attributes_object, age_gender_list)
                 for j in range(len(tracking_object)):
                     obj = tracking_object[j]
                     obj["total_count_in"] = obj["human_count_in"]
@@ -848,6 +907,8 @@ def recognize_from_video(net, net_clip, net_age_gender):
                 before_fps_time = fps_time
                 if args.clip:
                     update_clip_object(clip_object, clip_text)
+                if args.person_attributes:
+                    update_person_attributes_object(person_attributes_object)
 
         # save frame
         if count_exists_in_frame:
@@ -913,7 +974,12 @@ def main():
     else:
         net_age_gender = None
 
-    recognize_from_video(net, net_clip, net_age_gender)
+    if args.person_attributes:
+        net_person_attributes = create_person_attributes_recognition_crossroad(args.env_id)
+    else:
+        net_person_attributes = None
+
+    recognize_from_video(net, net_clip, net_age_gender, net_person_attributes)
 
 if __name__ == '__main__':
     main()
