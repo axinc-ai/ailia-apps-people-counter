@@ -7,7 +7,7 @@ import datetime
 
 import numpy as np
 import cv2
-from matplotlib import cm
+from matplotlib import colormaps
 
 import ailia
 
@@ -220,7 +220,6 @@ def update_clip_object(clip_object, clip_text):
             clip_object["total_clip_count"][c][i] = clip_object["clip_count"][c][i]
 
 clip_text = get_clip_text(args.text_inputs)
-logger.info("CLIP Labels : ", clip_text)
 
 
 # ======================
@@ -298,7 +297,7 @@ def get_colors(n, colormap="gist_ncar"):
     # https://matplotlib.org/examples/color/colormaps_reference.html
     # and https://matplotlib.org/users/colormaps.html
 
-    colors = cm.get_cmap(colormap)(np.linspace(0, 1, n))
+    colors = colormaps.get_cmap(colormap)(np.linspace(0, 1, n))
     # Randomly shuffle the colors
     np.random.shuffle(colors)
     # Opencv expects bgr while cm returns rgb, so we swap to match the colormap (though it also works fine without)
