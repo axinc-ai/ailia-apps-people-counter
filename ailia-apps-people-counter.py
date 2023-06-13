@@ -425,6 +425,12 @@ def get_settings():
     else:
         settings["age_gender"] = False
 
+    global checkBoxPersonAttributesBln
+    if checkBoxPersonAttributesBln.get():
+        settings["person_attributes"] = True
+    else:
+        settings["person_attributes"] = False
+
     global checkBoxClipBln
     if checkBoxClipBln.get():
         settings["clip"] = True
@@ -484,6 +490,10 @@ def set_settings(settings):
 
     global checkBoxAgeGenderBln
     checkBoxAgeGenderBln.set(settings["age_gender"])
+
+    if "person_attributes" in settings:
+        global checkBoxPersonAttributesBln
+        checkBoxPersonAttributesBln.set(settings["person_attributes"])
 
     global checkBoxClipBln
     checkBoxClipBln.set(settings["clip"])
@@ -671,6 +681,7 @@ def menu(root):
 root = None
 checkBoxClipBln = None
 checkBoxAgeGenderBln = None
+checkBoxPersonAttributesBln = None
 clipTextEntry = None
 checkBoxAlwaysBln = None
 checkBoxShowFpsBln = None
@@ -816,27 +827,33 @@ def ui():
     checkBoxAgeGender = tkinter.Checkbutton(frame, variable=checkBoxAgeGenderBln, text='Age gender classification')
     checkBoxAgeGender.grid(row=3, column=3, sticky=tk.NW, rowspan=1)
 
+    global checkBoxPersonAttributesBln
+    checkBoxPersonAttributesBln = tkinter.BooleanVar()
+    checkBoxPersonAttributesBln.set(False)
+    checkBoxPersonAttributes = tkinter.Checkbutton(frame, variable=checkBoxPersonAttributesBln, text='Person attributes classification')
+    checkBoxPersonAttributes.grid(row=4, column=3, sticky=tk.NW, rowspan=1)
+
     global checkBoxAlwaysBln
     checkBoxAlwaysBln = tkinter.BooleanVar()
     checkBoxAlwaysBln.set(False)
     checkBoxAlways = tkinter.Checkbutton(frame, variable=checkBoxAlwaysBln, text='Always classify for debug')
-    checkBoxAlways.grid(row=4, column=3, sticky=tk.NW, rowspan=1)
+    checkBoxAlways.grid(row=5, column=3, sticky=tk.NW, rowspan=1)
 
     global checkBoxShowFpsBln
     checkBoxShowFpsBln = tkinter.BooleanVar()
     checkBoxShowFpsBln.set(False)
     checkBoxShowFps = tkinter.Checkbutton(frame, variable=checkBoxShowFpsBln, text='Show fps')
-    checkBoxShowFps.grid(row=5, column=3, sticky=tk.NW, rowspan=1)
+    checkBoxShowFps.grid(row=6, column=3, sticky=tk.NW, rowspan=1)
 
     textCategory = tk.StringVar(frame)
     textCategory.set("Category")
     labelCategory = tk.Label(frame, textvariable=textCategory)
-    labelCategory.grid(row=6, column=3, sticky=tk.NW)
+    labelCategory.grid(row=7, column=3, sticky=tk.NW)
 
     global ListboxCategory
     lists = tk.StringVar(value=get_category_list())
     ListboxCategory = tk.Listbox(frame, listvariable=lists, width=26, height=3, selectmode="single", exportselection=False)
-    ListboxCategory.grid(row=7, column=3, sticky=tk.NW, rowspan=2)
+    ListboxCategory.grid(row=8, column=3, sticky=tk.NW, rowspan=2)
     ListboxCategory.bind("<<ListboxSelect>>", category_changed)
 
     ListboxCategory.select_set(category_index)
@@ -883,6 +900,7 @@ def run():
         args_dict["imgpath"] = settings["imgpath"]
     args_dict["clip"] = settings["clip"]
     args_dict["age_gender"] = settings["age_gender"]
+    args_dict["person_attributes"] = settings["person_attributes"]
     args_dict["always_classification"] = settings["always_classify_for_debug"]
     args_dict["show_fps"] = settings["show_fps"]
     args_dict["model_type"] = settings["model_type"]

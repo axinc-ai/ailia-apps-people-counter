@@ -13,6 +13,7 @@ Count the number of people crossing a line from a video using an AI model for pe
 
 - Clip classification
 - Age gender classification
+- Person attributes classification
 - Google Analytics connection
 
 ## Requirements
