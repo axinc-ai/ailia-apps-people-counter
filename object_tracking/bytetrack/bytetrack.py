@@ -174,11 +174,40 @@ if args.age_gender:
 # Clip
 # ======================
 
-if args.text_inputs:
-    clip_text = args.text_inputs
-else:
-    clip_text = ["man", "woman"]
+def get_clip_text(text_inputs):
+    if text_inputs:
+        clip_text = []
+        clip_category = []
+        for text in args.text_inputs:
+            if text == "#":
+                clip_text.append(clip_category)
+                clip_category = []
+            else:
+                clip_category.append(text)
+    else:
+        clip_text = [["man", "woman"]]
+    return clip_text
 
+def initialize_clip_object(clip_text):
+    clip_object = {"clip_id":[],"clip_conf":[],"clip_count":[],"total_clip_count":[]}
+    if args.clip:
+        for c in range(0, len(clip_text)):
+            clip_object["clip_id"].append({})
+            clip_object["clip_conf"].append({})
+            clip_object["clip_count"].append([])
+            clip_object["total_clip_count"].append([])
+            for i in range(0, len(clip_text[c])):
+                clip_object["clip_count"][c].append(0)
+                clip_object["total_clip_count"][c].append(0)
+    return clip_object
+
+def update_clip_object(clip_object, clip_text):
+    for c in range(0, len(clip_text)):
+        for i in range(0, len(clip_text[c])):
+            clip_object["total_clip_count"][c][i] = clip_object["clip_count"][c][i]
+
+clip_text = get_clip_text(args.text_inputs)
+logger.info("CLIP Labels : ", clip_text)
 
 # ======================
 # Terminate
@@ -294,7 +323,9 @@ def display_person(frame, img, person_idx, label):
         cv2.putText(frame, label, (x, frame.shape[0] - s),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255), thickness=1)
 
-def display_track(frame, online_targets, tracking_object, clip_id, clip_conf, age_gender_id):
+def display_track(frame, online_targets, tracking_object, clip_object, age_gender_id):
+    clip_id = clip_object["clip_id"]
+    clip_conf = clip_object["clip_conf"]
     tracking_position = tracking_object[0]["tracking_position"]
 
     for t in online_targets:
@@ -324,11 +355,12 @@ def display_track(frame, online_targets, tracking_object, clip_id, clip_conf, ag
         cv2.putText(frame, text, (x, y_top),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, thickness=3)
         y_top = y_top + 20
-        if tid in clip_id:
-            text = clip_text[clip_id[tid]] + " " + str(int(clip_conf[tid]*100)/100)
-            cv2.putText(frame, text, (x, y_top),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
-            y_top = y_top + 20
+        for c in range(0,len(clip_id)):
+            if tid in clip_id[c]:
+                text = clip_text[c][clip_id[c][tid]] + " " + str(int(clip_conf[c][tid]*100)/100)
+                cv2.putText(frame, text, (x, y_top),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, original_color, thickness=3)
+                y_top = y_top + 20
         if tid in age_gender_id:
             text = age_gender_id[tid]
             cv2.putText(frame, text, (x, y_top),
@@ -350,8 +382,12 @@ TRACKING_STATE_OUT = 2
 TRACKING_STATE_DONE = 3
 
 def line_crossing(frame, online_targets, tracking_object, countup_state, frame_no, fps_time, total_time,
-    net_clip, clip_id, clip_conf, clip_count,
+    net_clip, clip_object,
     net_age_gender, age_gender_id, age_gender_list, line_no):
+
+    clip_id = clip_object["clip_id"]
+    clip_conf = clip_object["clip_conf"]
+    clip_count = clip_object["clip_count"]
 
     tracking_position = tracking_object[line_no]["tracking_position"]
     tracking_state = tracking_object[line_no]["tracking_state"]
@@ -440,13 +476,17 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
             img = original_frame[int(tlwh[1]):int(tlwh[1]+tlwh[3]), int(tlwh[0]):int(tlwh[0]+tlwh[2]),:]
             if img.shape[0] > 0 and img.shape[1] > 0:
                 if args.clip:
-                    prob = recognize_clip(net_clip, img)
-                    i = np.argmax(prob[0])
-                    clip_id[tid] = i
-                    clip_conf[tid] = prob[0][i]
-                    if countup_in or countup_out:
-                        clip_count[i] = clip_count[i] + 1
-                    label = clip_text[i]
+                    prob_list = recognize_clip(net_clip, img)
+                    category_idx = 0
+                    label = ""
+                    for prob in prob_list:
+                        i = np.argmax(prob[0])
+                        clip_id[category_idx][tid] = i
+                        clip_conf[category_idx][tid] = prob[0][i]
+                        if countup_in or countup_out:
+                            clip_count[category_idx][i] = clip_count[category_idx][i] + 1
+                        label = label + clip_text[category_idx][i] + " "
+                        category_idx = category_idx + 1
                 if args.age_gender:
                     age, gender, face = recognize_age_gender_retail(net_age_gender, img)
                     if age == None:
@@ -511,9 +551,10 @@ def open_csv(tracking_object):
         csv.write(" , count(in)("+id+") , count(out)("+id+") , total_count(in)("+id+") , total_count(out)("+id+")")
 
     if args.clip:
-        for i in range(0, len(clip_text)):
-            csv.write(" , ")
-            csv.write(clip_text[i])
+        for c in range(0, len(clip_text)):
+            for i in range(0, len(clip_text[c])):
+                csv.write(" , ")
+                csv.write(clip_text[c][i])
     if args.age_gender:
         csv.write(" , ")
         csv.write("age_gender(list)")
@@ -521,7 +562,10 @@ def open_csv(tracking_object):
     return csv
 
 
-def write_csv(csv, fps_time, time_stamp, tracking_object, clip_count, total_clip_count, age_gender_list):
+def write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, age_gender_list):
+    clip_count = clip_object["clip_count"]
+    total_clip_count = clip_object["total_clip_count"]
+
     csv.write(str(fps_time) + " , " + time_stamp)
 
     for j in range(len(tracking_object)):
@@ -529,9 +573,10 @@ def write_csv(csv, fps_time, time_stamp, tracking_object, clip_count, total_clip
         csv.write(" , " + str(obj["human_count_in"] - obj["total_count_in"]) + " , " +  str(obj["human_count_out"] - obj["total_count_out"]) + " , " + str(obj["human_count_in"]) + " , " + str(obj["human_count_out"]))
 
     if args.clip:
-        for i in range(0, len(clip_text)):
-            csv.write(" , ")
-            csv.write(str(clip_count[i] - total_clip_count[i]))
+        for c in range(0, len(clip_text)):
+            for i in range(0, len(clip_text[c])):
+                csv.write(" , ")
+                csv.write(str(clip_count[c][i] - total_clip_count[c][i]))
     if args.age_gender:
         for age_gender in age_gender_list:
             csv.write(" , ")
@@ -724,14 +769,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
     frame_shown = False
     before_fps_time = -1
 
-    clip_id = {}
-    clip_conf = {}
-    clip_count = []
-    total_clip_count = []
-    if args.clip:
-        for i in range(0, len(clip_text)):
-            clip_count.append(0)
-            total_clip_count.append(0)
+    clip_object = initialize_clip_object(clip_text)
 
     age_gender_id = {}
     age_gender_list = []
@@ -777,11 +815,11 @@ def recognize_from_video(net, net_clip, net_age_gender):
         count_exists_in_frame = False
         for line_no in range(len(target_lines)):
             cur_count_exists_in_frame = line_crossing(frame, online_targets, tracking_object, countup_state, frame_no, fps_time, total_time,
-                net_clip, clip_id, clip_conf, clip_count,
+                net_clip, clip_object,
                 net_age_gender, age_gender_id, age_gender_list, line_no)
             if cur_count_exists_in_frame:
                 count_exists_in_frame = True
-        display_track(frame, online_targets, tracking_object, clip_id, clip_conf, age_gender_id)
+        display_track(frame, online_targets, tracking_object, clip_object, age_gender_id)
         res_img = frame
 
         # fps
@@ -801,7 +839,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
             writer.write(res_img.astype(np.uint8))
         if csv is not None:
             if before_fps_time != fps_time:
-                write_csv(csv, fps_time, time_stamp, tracking_object, clip_count, total_clip_count, age_gender_list)
+                write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, age_gender_list)
                 for j in range(len(tracking_object)):
                     obj = tracking_object[j]
                     obj["total_count_in"] = obj["human_count_in"]
@@ -809,8 +847,7 @@ def recognize_from_video(net, net_clip, net_age_gender):
                 age_gender_list = []
                 before_fps_time = fps_time
                 if args.clip:
-                    for i in range(0, len(clip_text)):
-                        total_clip_count[i] = clip_count[i]
+                    update_clip_object(clip_object, clip_text)
 
         # save frame
         if count_exists_in_frame:

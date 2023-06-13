@@ -110,12 +110,16 @@ def predict(net, img, text_feature):
 
     image_feature = image_feature / np.linalg.norm(image_feature, ord=2, axis=-1, keepdims=True)
 
+    pred_list = []
     logit_scale = 100
-    logits_per_image = (image_feature * logit_scale).dot(text_feature.T)
+    for feature in text_feature:
+        logits_per_image = (image_feature * logit_scale).dot(feature.T)
+        pred = softmax(logits_per_image, axis=1)
+        pred = pred[0]
+        pred = np.expand_dims(pred,axis=0)
+        pred_list.append(pred)
 
-    pred = softmax(logits_per_image, axis=1)
-
-    return pred[0]
+    return pred_list
 
 
 def predict_text_feature(net, text):
@@ -138,11 +142,10 @@ def recognize_clip(net_clip, img):
     text_feature = net_clip["text_feature"]
 
     # inference
-    pred = predict(net_image, img, text_feature)
+    pred_list = predict(net_image, img, text_feature)
 
     # show results
-    pred = np.expand_dims(pred,axis=0)
-    return pred
+    return pred_list
 
 
 def create_clip(text_inputs, env_id):
@@ -167,5 +170,8 @@ def create_clip(text_inputs, env_id):
         reduce_interstage=False, reuse_interstage=False)
     net_image = ailia.Net(MODEL_IMAGE_PATH, WEIGHT_IMAGE_PATH, env_id=env_id, memory_mode=memory_mode)
     net_text = ailia.Net(MODEL_TEXT_PATH, WEIGHT_TEXT_PATH, env_id=env_id, memory_mode=memory_mode)
-    text_feature = predict_text_feature(net_text, text_inputs)
+    text_feature = []
+    for category in text_inputs:
+        text_feature.append(predict_text_feature(net_text, category))
+
     return {"net_image":net_image, "net_text":net_text, "text_feature":text_feature}

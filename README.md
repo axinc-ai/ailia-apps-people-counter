@@ -99,6 +99,14 @@ classDiagram
 
 ## FAQ
 
+### I want to detect multiple categories in a clip
+
+Multiple categories can be specified by separating the category names with #.
+
+```
+man,woman#younger,older
+```
+
 ### UI not visible in DarkMode on macOS
 
 Use brew's python3.10.
