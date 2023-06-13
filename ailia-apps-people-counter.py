@@ -443,6 +443,12 @@ def get_settings():
     else:
         settings["always_classify_for_debug"] = False
 
+    global checkBoxFootingBln
+    if checkBoxFootingBln.get():
+        settings["footing"] = True
+    else:
+        settings["footing"] = False
+
     global checkBoxShowFpsBln
     if checkBoxShowFpsBln.get():
         settings["show_fps"] = True
@@ -500,6 +506,10 @@ def set_settings(settings):
 
     global checkBoxAlwaysBln
     checkBoxAlwaysBln.set(settings["always_classify_for_debug"])
+
+    if "footing" in settings:
+        global checkBoxFootingBln
+        checkBoxFootingBln.set(settings["footing"])
 
     if "show_fps" in settings:
         global checkBoxShowFpsBln
@@ -856,6 +866,12 @@ def ui():
     ListboxCategory.grid(row=8, column=3, sticky=tk.NW, rowspan=2)
     ListboxCategory.bind("<<ListboxSelect>>", category_changed)
 
+    global checkBoxFootingBln
+    checkBoxFootingBln = tkinter.BooleanVar()
+    checkBoxFootingBln.set(False)
+    checkBoxFooting = tkinter.Checkbutton(frame, variable=checkBoxFootingBln, text='Track footing')
+    checkBoxFooting.grid(row=10, column=3, sticky=tk.NW, rowspan=1)
+
     ListboxCategory.select_set(category_index)
 
     root.mainloop()
@@ -902,6 +918,7 @@ def run():
     args_dict["age_gender"] = settings["age_gender"]
     args_dict["person_attributes"] = settings["person_attributes"]
     args_dict["always_classification"] = settings["always_classify_for_debug"]
+    args_dict["footing"] = settings["footing"]
     args_dict["show_fps"] = settings["show_fps"]
     args_dict["model_type"] = settings["model_type"]
     args_dict["category"] = settings["category"]
