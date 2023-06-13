@@ -72,7 +72,6 @@ def recognize_person_attributes_recognition_crossroad(crossroad, raw_data, x, y,
     # frame is bgr
     net = crossroad["net"]
     # get person
-    img_h,img_w,_ = raw_data.shape
     input_data, x, y, w, h = crop_and_resize(raw_data, x, y, w, h)
 
     # get attribute
@@ -88,7 +87,7 @@ def recognize_person_attributes_recognition_crossroad(crossroad, raw_data, x, y,
     else:
         classes = result[0][0][:8]
 
-    labels = ['is_male','has_bag','has_backpack','has_hat','has_longsleeves','has_longpants','has_longhair','has_coat_jacket']
+    labels = ['is_male','has_bag','has_backpack','has_hat','has_longsleeves','has_longpants','has_longhair']
     return labels, classes
 
 

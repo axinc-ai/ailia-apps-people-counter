@@ -222,7 +222,7 @@ logger.info("CLIP Labels : ", clip_text)
 # Person attributes
 # ======================
 
-person_attributes_labels = ['is_male','has_bag','has_backpack','has_hat','has_longsleeves','has_longpants','has_longhair','has_coat_jacket']
+person_attributes_labels = ['is_male','has_bag','has_backpack','has_hat','has_longsleeves','has_longpants','has_longhair']
 
 def initialize_person_attributes_object():
     person_attributes_object = {"count":[], "total_count":[], "label":{}}
@@ -533,13 +533,13 @@ def line_crossing(frame, online_targets, tracking_object, countup_state, frame_n
                         age_gender_list.append(age_gender_id[tid])
 
                 if args.person_attributes:
-                    labels, confs = recognize_person_attributes_recognition_crossroad(net_person_attributes, img, int(tlwh[0]), int(tlwh[1]), int(tlwh[2]), int(tlwh[3]))
+                    labels, confs = recognize_person_attributes_recognition_crossroad(net_person_attributes, original_frame, int(tlwh[0]), int(tlwh[1]), int(tlwh[2]), int(tlwh[3]))
                     label = ""
                     for i in range(0,len(labels)):
                         if confs[i] > 0.5:
                             if countup_in or countup_out:
                                 person_attributes_object["count"][i] = person_attributes_object["count"][i] + 1
-                            label = label + " " + labels[i]
+                        label = label + " " + labels[i] + " " + str(int(confs[i]*100)/100)
                     person_attributes_object["label"][tid] = label
 
                 if args.always_classification:
@@ -632,7 +632,7 @@ def write_csv(csv, fps_time, time_stamp, tracking_object, clip_object, person_at
     if args.person_attributes:
         for i in range(0, len(person_attributes_labels)):
             csv.write(" , ")
-            csv.write(str(person_attributes_object["count"] - person_attributes_object["total_count"]))
+            csv.write(str(person_attributes_object["count"][i] - person_attributes_object["total_count"][i]))
         
     if args.age_gender:
         for age_gender in age_gender_list:
