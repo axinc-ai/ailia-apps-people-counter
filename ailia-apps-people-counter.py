@@ -923,10 +923,15 @@ def run():
 
     global clipTextEntry
     if clipTextEntry:
-        clip_text = clipTextEntry.get().split(",")
-        for text in clip_text:
+        clip_text_entry = clipTextEntry.get()
+        clip_category = clip_text_entry.split("#")
+        for category in clip_category:
+            clip_text = category.split(",")
+            for text in clip_text:
                 options.append("--text")
-                options.append(text)#"\""+text+"\"")
+                options.append(text)
+            options.append("--text")
+            options.append("#")
 
     cmd = [cmd, "bytetrack.py"] + options
     print(" ".join(cmd))
