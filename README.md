@@ -97,6 +97,23 @@ classDiagram
 `Backend` : CPU, GPU
 ```
 
+## FAQ
+
+### UI not visible in DarkMode on macOS
+
+Use brew's python3.10.
+
+```
+brew install python@3.10
+brew install python-tk@3.10
+pip3.10 install -r requrements.txt
+python3.10 ailia-people-counter.py
+```
+
+### Failed to install lap
+
+Use python3.10 instead of python3.11.
+
 ## Test video
 
 https://pixabay.com/videos/segway-scooter-people-move-28146/
