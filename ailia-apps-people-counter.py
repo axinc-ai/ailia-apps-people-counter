@@ -982,9 +982,9 @@ def run():
 def stop():
     global proc
 
-    if not (proc==None):
-        proc.send_signal(SIGINT)
-        proc=None
+    if proc is not None:
+        proc.terminate()
+        proc = None
 
 if __name__ == '__main__':
     main()
