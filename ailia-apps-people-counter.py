@@ -1,6 +1,7 @@
 # ailia APPS People Counter
 # (C) 2022-2023 AXELL CORPORATION
 
+import signal
 import sys
 import time
 from signal import SIGINT
@@ -973,18 +974,19 @@ def run():
 
     dir = "./object_tracking/bytetrack/"
 
-    proc = subprocess.Popen(cmd, cwd=dir)
-    try:
-        outs, errs = proc.communicate(timeout=1)
-    except subprocess.TimeoutExpired:
-        pass
+    proc = subprocess.Popen(cmd, cwd=dir, stdin=subprocess.PIPE)
+
 
 def stop():
     global proc
 
-    if not (proc==None):
-        proc.send_signal(SIGINT)
-        proc=None
+    if proc is not None:
+        proc.stdin.write(b"STOP\n")
+        proc.stdin.flush()
+        proc.wait(5)
+        if proc.poll() is None:
+            proc.kill()
+        proc = None
 
 if __name__ == '__main__':
     main()
