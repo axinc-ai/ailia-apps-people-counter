@@ -4,6 +4,7 @@ import uuid
 import requests
 import json
 import datetime
+import threading
 
 import numpy as np
 import cv2
@@ -157,6 +158,19 @@ parser.add_argument('--min-box-area', type=float, default=10, help='filter out t
 args = update_parser(parser)
 
 # ======================
+# Communicate to host process
+# ======================
+request_quit = False
+
+
+def read_from_host():
+    global request_quit
+    while not request_quit:
+        line = sys.stdin.readline().strip()
+        if line == "STOP":
+            request_quit = True
+
+# ======================
 # UI
 # ======================
 
@@ -238,24 +252,6 @@ def initialize_person_attributes_object():
 def update_person_attributes_object(person_attributes_object):
     for i in range(0,len(person_attributes_labels)):
         person_attributes_object["total_count"][i] = person_attributes_object["count"][i]
-
-
-# ======================
-# Terminate
-# ======================
-
-from signal import SIGINT
-import signal
-
-terminate_signal = False
-
-def _signal_handler(signal, handler):
-    global terminate_signal
-    terminate_signal = True
-
-def set_signal_handler():
-    signal.signal(signal.SIGINT,  _signal_handler)
-
 
 # ======================
 # Analytics
@@ -844,10 +840,8 @@ def recognize_from_video(net, net_clip, net_age_gender, net_person_attributes):
             break
         if frame_shown and cv2.getWindowProperty('frame', cv2.WND_PROP_VISIBLE) == 0:
             break
-        global terminate_signal
-        if terminate_signal:
+        if request_quit:
             break
-
         # fps
         fps_start = int(round(time.time() * 1000))
 
@@ -940,7 +934,9 @@ def recognize_from_video(net, net_clip, net_age_gender, net_person_attributes):
 # ======================
 
 def main():
-    set_signal_handler()
+    global request_quit
+    comm_thread = threading.Thread(target=read_from_host)
+    comm_thread.start()
 
     dic_model = {
         'mot17_x': (WEIGHT_MOT17_X_PATH, MODEL_MOT17_X_PATH),
@@ -984,6 +980,8 @@ def main():
         net_person_attributes = None
 
     recognize_from_video(net, net_clip, net_age_gender, net_person_attributes)
-
+    request_quit = True
+    comm_thread.join()
+    
 if __name__ == '__main__':
     main()
